@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>FIELDRIG VEHICLE</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="statusbar">
+  <div class="chips">
+    <span class="chip" id="chip-gps">GPS</span>
+    <span class="chip" id="chip-mesh">MESH</span>
+    <span class="chip" id="chip-bt">BT</span>
+    <span class="chip" id="chip-sdr">SDR</span>
+    <span class="chip" id="chip-obd">OBD</span>
+  </div>
+  <div class="right">
+    <span class="bright" id="src-ind">♪ AUX</span>
+    <span class="dim">⚡ --.-V</span>
+    <span class="bright" id="clock">--:--</span>
+  </div>
+</header>
+
+<main id="frame">
+  <span class="frame-title">▞▞ FIELDRIG ▸ <span id="screen-name">HOME</span></span>
+  <span class="frame-sub" id="frame-sub">v--- ▞▞</span>
+
+  <!-- ============================ HOME ============================ -->
+  <section id="screen-home" class="screen active">
+    <div class="panel">
+      <span class="ptitle">♪ NOW PLAYING</span>
+      <span class="psub" id="np-sub">SOURCE -- · VOL --%</span>
+      <div class="np center">
+        <div class="np-title v-np-title">NO MEDIA</div>
+        <div class="np-artist dim v-np-artist">pair a phone or start a player</div>
+        <div class="np-progress v-np-progress">⏹&nbsp;&nbsp;╞┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╡</div>
+        <canvas class="waveform" width="800" height="56"></canvas>
+      </div>
+    </div>
+    <div class="row">
+      <div class="panel gauge">
+        <span class="ptitle">SPEED</span>
+        <div class="gauge-val" id="g-speed">---</div>
+        <div class="gauge-unit dim">MPH</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">RPM</span>
+        <div class="gauge-val" id="g-rpm">---</div>
+        <div class="gauge-unit dim">× 1000</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">FUEL</span>
+        <div class="gauge-val" id="g-fuel">---</div>
+        <div class="gauge-unit dim">% REMAINING</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">COOLANT</span>
+        <div class="gauge-val" id="g-temp">---</div>
+        <div class="gauge-unit dim">°F</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="panel half">
+        <span class="ptitle">⚙ SYSTEM</span>
+        <pre id="sysstats">reading…</pre>
+      </div>
+      <div class="panel half">
+        <span class="ptitle">◍ EVENT FEED</span>
+        <span class="psub">BUS</span>
+        <pre id="eventfeed"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ AUDIO ============================ -->
+  <section id="screen-audio" class="screen">
+    <div class="row">
+      <div class="panel half">
+        <span class="ptitle">SOURCE</span>
+        <div class="big v-source">--</div>
+        <div class="dim v-btline">⛉ NO PHONE LINKED</div>
+      </div>
+      <div class="panel half">
+        <span class="ptitle">VOLUME</span>
+        <div class="big v-volmeter">░░░░░░░░░░░░░░░░░░░░ ---%</div>
+        <div class="dim v-volstate">◻ LIVE</div>
+      </div>
+    </div>
+    <div class="panel">
+      <span class="ptitle">♪ NOW PLAYING</span>
+      <div class="np center">
+        <div class="np-title v-np-title">NO MEDIA</div>
+        <div class="np-artist dim v-np-artist">pair a phone or start a player</div>
+        <div class="np-progress v-np-progress">⏹&nbsp;&nbsp;╞┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╡</div>
+        <canvas class="waveform" width="800" height="56"></canvas>
+      </div>
+    </div>
+    <div class="controls">
+      <button data-cmd="previous">◀◀</button>
+      <button data-cmd="play_pause" class="accent">▶ ⏸</button>
+      <button data-cmd="next">▶▶</button>
+      <span class="spacer"></span>
+      <button data-cmd="volume_down">VOL−</button>
+      <button data-cmd="volume_up">VOL+</button>
+      <button data-cmd="toggle_mute">MUTE</button>
+      <span class="spacer"></span>
+      <button data-screen="bluetooth" class="accent">⛉ PAIR</button>
+    </div>
+  </section>
+
+  <!-- ========================== BLUETOOTH ========================== -->
+  <section id="screen-bluetooth" class="screen">
+    <div class="panel">
+      <span class="ptitle">⛉ PAIRING</span>
+      <div class="dim">PHONES PAIR TO THE PI — TAP <b>PAIR MODE</b>, THEN PICK
+        '<span class="bright">FieldRig</span>' ON YOUR PHONE</div>
+      <div id="bt-status">READY</div>
+    </div>
+    <div class="panel grow">
+      <span class="ptitle">KNOWN DEVICES</span>
+      <span class="psub">TAP TO SELECT</span>
+      <ul id="bt-list"></ul>
+    </div>
+    <div class="controls">
+      <button data-cmd="bt_pairing_mode" class="accent">⛉ PAIR MODE</button>
+      <button data-bt="bt_connect">CONNECT</button>
+      <button data-bt="bt_disconnect">DISCONN</button>
+      <button data-bt="bt_remove">REMOVE</button>
+      <span class="spacer"></span>
+      <button data-screen="audio">← BACK</button>
+    </div>
+  </section>
+
+  <!-- ========================= PLACEHOLDERS ========================= -->
+  <section id="screen-nav" class="screen placeholder">
+    <div class="panel card">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 5</span>
+      <div class="glyph">◈</div>
+      <div class="big">NAVIGATION — OFFLINE</div>
+      <div class="dim">GPSD · OFFLINE MBTILES · MAPLIBRE GL</div>
+      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 5</div>
+    </div>
+  </section>
+  <section id="screen-obd" class="screen placeholder">
+    <div class="panel card">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 4</span>
+      <div class="glyph">▣</div>
+      <div class="big">VEHICLE TELEMETRY — OFFLINE</div>
+      <div class="dim">OBD-II · FUEL RANGE · WARNINGS</div>
+      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 4</div>
+    </div>
+  </section>
+  <section id="screen-radio" class="screen placeholder">
+    <div class="panel card">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 6</span>
+      <div class="glyph">≋</div>
+      <div class="big">RADIO — OFFLINE</div>
+      <div class="dim">RTL-SDR · SPECTRUM · SCANNER PRESETS</div>
+      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 6</div>
+    </div>
+  </section>
+  <section id="screen-mesh" class="screen placeholder">
+    <div class="panel card">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 7</span>
+      <div class="glyph">✉</div>
+      <div class="big">MESH NETWORK — OFFLINE</div>
+      <div class="dim">MESHTASTIC · NODES · MESSAGING</div>
+      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 7</div>
+    </div>
+  </section>
+  <section id="screen-camera" class="screen placeholder">
+    <div class="panel card">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 8</span>
+      <div class="glyph">◉</div>
+      <div class="big">CAMERA — OFFLINE</div>
+      <div class="dim">UVC CAPTURE · LIVE MJPEG FEED</div>
+      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 8</div>
+      <!-- Phase 8: <img class="feed" src="/camera.mjpg"> replaces this card -->
+    </div>
+  </section>
+  <section id="screen-system" class="screen placeholder">
+    <div class="panel card">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 9</span>
+      <div class="glyph">⚙</div>
+      <div class="big">SYSTEM — BASIC</div>
+      <div class="dim">FULL MODULE HEALTH · SETTINGS · REBOOT</div>
+      <div class="dimmer">FULL SCREEN ARRIVES IN PHASE 9</div>
+    </div>
+  </section>
+</main>
+
+<nav id="navbar">
+  <button data-screen="home" class="current">⌂</button>
+  <button data-screen="audio">♪ AUDIO</button>
+  <button data-screen="nav">◈ NAV</button>
+  <button data-screen="obd">▣ OBD</button>
+  <button data-screen="radio">≋ RADIO</button>
+  <button data-screen="mesh">✉ MESH</button>
+  <button data-screen="camera">◉ CAM</button>
+  <button data-screen="system">⚙ SYS</button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

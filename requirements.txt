@@ -1,0 +1,7 @@
+# Core (all platforms)
+textual>=1.0
+
+# Pi-only hardware extras -- install with: pip install -e ".[pi]"
+# pyaudio    (waveform capture; needs portaudio system package)
+# pyudev     (USB hotplug detection)
+# gpiod      (ignition 12V sense / graceful shutdown)

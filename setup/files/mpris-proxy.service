@@ -1,0 +1,11 @@
+[Unit]
+Description=Bluetooth AVRCP to MPRIS bridge (phone media into FieldRig)
+After=bluetooth.target
+
+[Service]
+ExecStart=/usr/bin/mpris-proxy
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

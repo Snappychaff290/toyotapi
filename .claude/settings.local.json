@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x setup/*.sh setup/files/fieldrig-launch.sh)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python -m fieldrig --version)",
+      "Bash(.venv/bin/python -m fieldrig --check)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(.venv/bin/python scripts/smoke_test.py)",
+      "Bash(.venv/bin/pip show *)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/pip list *)",
+      "Read(//home/snappy/.local/state/fieldrig/logs/**)",
+      "Bash(echo \"final exit: $?\")",
+      "Bash(echo \"all exit: $?\")",
+      "Bash(node --check fieldrig/web/app.js)"
+    ]
+  }
+}

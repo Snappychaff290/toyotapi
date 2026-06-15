@@ -1,0 +1,245 @@
+/* FieldRig theme: green phosphor console. Bright #00ff41 for live
+   data, mid #00b22d for chrome, dim #008f25 for secondary text,
+   #003b00 borders, #001a00 raised surfaces. Touch targets stay >= 3
+   rows tall. */
+
+Screen {
+    background: #0d0d0d;
+    color: #00ff41;
+}
+
+/* --- frame chrome --- */
+
+#screen-body {
+    border: round #00802a;
+    border-title-color: #00ff41;
+    border-title-style: bold;
+    border-subtitle-color: #008f25;
+    margin: 0 1;
+    padding: 0 1;
+}
+
+#status-bar {
+    dock: top;
+    height: 1;
+    background: #001a00;
+    padding: 0 1;
+}
+
+#status-chips {
+    width: 1fr;
+}
+
+#status-right {
+    width: auto;
+}
+
+#nav-bar {
+    dock: bottom;
+    height: 3;
+    align: center middle;
+}
+
+#nav-bar Button {
+    min-width: 7;
+    margin: 0 0 0 1;
+}
+
+/* --- panels --- */
+
+.panel {
+    border: round #003b00;
+    border-title-color: #00d938;
+    border-title-style: bold;
+    border-subtitle-color: #008f25;
+    padding: 0 1;
+}
+
+.dim {
+    color: #008f25;
+}
+
+/* --- buttons --- */
+
+Button {
+    background: #0d0d0d;
+    color: #00ff41;
+    border: solid #003b00;
+    min-width: 9;
+    height: 3;
+    margin: 0 1;
+    text-style: bold;
+}
+
+Button:hover {
+    background: #003b00;
+}
+
+Button:focus {
+    border: solid #00b22d;
+}
+
+Button.-active {
+    background: #00ff41;
+    color: #0d0d0d;
+}
+
+Button.-current {
+    background: #003b00;
+    border: solid #00ff41;
+}
+
+Button.accent {
+    border: solid #00b22d;
+    background: #001a00;
+}
+
+.ctl-spacer {
+    width: 3;
+}
+
+/* --- home screen --- */
+
+#now-playing-panel {
+    height: auto;
+    margin: 1 0;
+}
+
+NowPlaying {
+    height: 3;
+    text-align: center;
+    width: 100%;
+}
+
+WaveformDisplay {
+    height: auto;
+    text-align: center;
+    width: 100%;
+    color: #00d938;
+}
+
+#telemetry {
+    height: 6;
+}
+
+.telemetry-cell {
+    width: 1fr;
+    height: 6;
+    margin: 0 1 0 0;
+    align: center middle;
+}
+
+.telemetry-value {
+    text-style: bold;
+    text-align: center;
+    width: 100%;
+}
+
+.telemetry-unit {
+    color: #008f25;
+    text-align: center;
+    width: 100%;
+}
+
+#home-bottom {
+    height: 1fr;
+    min-height: 6;
+    margin: 1 0 0 0;
+}
+
+#system-panel, #event-panel {
+    width: 1fr;
+    margin: 0 1 0 0;
+}
+
+SystemStats, EventFeed {
+    height: auto;
+}
+
+/* --- audio screen --- */
+
+#audio-top {
+    height: 5;
+    margin: 1 0 0 0;
+}
+
+#audio-source-panel, #audio-volume-panel {
+    width: 1fr;
+    height: 5;
+    margin: 0 1 0 0;
+}
+
+#audio-source-value, #audio-volume-meter {
+    text-style: bold;
+}
+
+#audio-np-panel {
+    height: auto;
+    margin: 1 0;
+}
+
+#audio-controls {
+    dock: bottom;
+    height: 3;
+    margin: 0 0 1 0;
+    align: center middle;
+}
+
+#audio-controls Button.transport {
+    min-width: 8;
+}
+
+/* --- bluetooth screen --- */
+
+#bt-pairing-panel {
+    height: 5;
+    margin: 1 0 0 0;
+}
+
+#bt-devices-panel {
+    height: 1fr;
+    margin: 1 0;
+    padding: 0;
+}
+
+#bt-list {
+    background: #0d0d0d;
+    height: 1fr;
+}
+
+#bt-list > ListItem {
+    background: #0d0d0d;
+    color: #00ff41;
+    height: 3;
+    padding: 1 2;
+}
+
+#bt-list > ListItem.-highlight {
+    background: #003b00;
+}
+
+#bt-actions {
+    dock: bottom;
+    height: 3;
+    margin: 0 0 1 0;
+    align: center middle;
+}
+
+/* --- placeholder screens --- */
+
+#placeholder-box {
+    width: 60;
+    height: auto;
+    align: center middle;
+}
+
+#screen-body > #placeholder-center {
+    align: center middle;
+    height: 1fr;
+}
+
+#placeholder-text {
+    text-align: center;
+    width: 100%;
+    height: auto;
+}

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=FieldRig
+Comment=FieldRig vehicle terminal
+Exec=@HOME@/.local/bin/fieldrig-launch
+Icon=chromium
+Terminal=false
+X-GNOME-Autostart-enabled=true
