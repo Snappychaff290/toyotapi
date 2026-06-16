@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Remount the root filesystem read-WRITE now (for manual maintenance).
+# This does NOT change the boot default; reboot returns to whatever
+# /etc/fstab says. Use fieldrig-unseal to change the boot default.
+exec sudo /usr/local/sbin/fieldrig-mount rw

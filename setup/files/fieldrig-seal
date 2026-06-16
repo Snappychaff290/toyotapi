@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Make root + boot firmware mount READ-ONLY on every boot (adds `ro` to
+# their /etc/fstab options). Reboots afterward unless --no-reboot is given.
+set -euo pipefail
+[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+
+REBOOT=1
+[ "${1:-}" = "--no-reboot" ] && REBOOT=0
+
+mount -o remount,rw / 2>/dev/null || true
+cp /etc/fstab /etc/fstab.fieldrig.prev
+
+awk '
+  $1 !~ /^#/ && ($2 == "/" || $2 == "/boot/firmware") {
+    n = split($4, a, ","); has = 0
+    for (i = 1; i <= n; i++) if (a[i] == "ro") has = 1
+    if (!has) $4 = $4 ",ro"
+  }
+  { print }
+' /etc/fstab.fieldrig.prev > /etc/fstab
+
+# Safety: never leave a truncated fstab without a root entry.
+if ! awk '$1 !~ /^#/ && $2 == "/"' /etc/fstab | grep -q .; then
+    echo "fstab edit looked wrong; restoring backup" >&2
+    cp /etc/fstab.fieldrig.prev /etc/fstab
+    exit 1
+fi
+sync
+
+echo "Sealed: root + boot mount READ-ONLY on next boot."
+[ "$REBOOT" -eq 1 ] && reboot || echo "Reboot to apply: sudo reboot"

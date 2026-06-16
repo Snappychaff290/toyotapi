@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Remount the root filesystem read-ONLY now (sync first).
+exec sudo /usr/local/sbin/fieldrig-mount ro

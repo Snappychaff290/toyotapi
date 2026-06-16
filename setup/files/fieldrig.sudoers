@@ -1,0 +1,5 @@
+# Let the FieldRig user flip the root filesystem read-only/read-write without
+# a password, so the in-app UPDATE button (and fieldrig-rw/fieldrig-ro) work.
+# Installed to /etc/sudoers.d/fieldrig (mode 0440). %USER% is substituted by
+# setup/06-readonly.sh.
+%USER% ALL=(root) NOPASSWD: /usr/local/sbin/fieldrig-mount

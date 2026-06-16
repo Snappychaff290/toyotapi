@@ -50,6 +50,9 @@ run_step 02-display.sh
 run_step 03-autologin.sh
 run_step 04-python-env.sh
 run_step 05-autostart.sh
+# Keep the filesystem writable for now; seal it read-only as the final,
+# deliberate step after a reboot confirms the kiosk actually works (below).
+run_step 06-readonly.sh --no-seal
 
 # --- done --------------------------------------------------------------------
 
@@ -59,6 +62,12 @@ echo " FieldRig install complete."
 echo
 echo " A reboot applies the new group memberships and starts the kiosk:"
 echo " ignition on -> autologin -> server -> Chromium fullscreen."
+echo
+echo " The filesystem is still WRITABLE. Once you've rebooted and"
+echo " confirmed the kiosk works, seal it read-only for the car:"
+echo "     sudo fieldrig-seal        # reboots read-only"
+echo " After that, hard power-offs can't corrupt the card, and the"
+echo " in-app UPDATE button briefly remounts read-write to update."
 echo "================================================================"
 
 if [ "$AUTO_REBOOT" -eq 1 ]; then

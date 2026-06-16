@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Make root + boot firmware mount READ-WRITE on every boot again (removes
+# `ro` from their /etc/fstab options). For big maintenance / apt upgrades.
+# Reboots afterward unless --no-reboot is given.
+set -euo pipefail
+[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+
+REBOOT=1
+[ "${1:-}" = "--no-reboot" ] && REBOOT=0
+
+mount -o remount,rw / 2>/dev/null || true
+cp /etc/fstab /etc/fstab.fieldrig.prev
+
+awk '
+  $1 !~ /^#/ && ($2 == "/" || $2 == "/boot/firmware") {
+    n = split($4, a, ","); out = ""
+    for (i = 1; i <= n; i++) if (a[i] != "ro") out = (out == "" ? a[i] : out "," a[i])
+    $4 = out
+  }
+  { print }
+' /etc/fstab.fieldrig.prev > /etc/fstab
+
+if ! awk '$1 !~ /^#/ && $2 == "/"' /etc/fstab | grep -q .; then
+    echo "fstab edit looked wrong; restoring backup" >&2
+    cp /etc/fstab.fieldrig.prev /etc/fstab
+    exit 1
+fi
+sync
+
+echo "Unsealed: root + boot mount READ-WRITE on next boot."
+[ "$REBOOT" -eq 1 ] && reboot || echo "Reboot to apply: sudo reboot"

@@ -92,6 +92,11 @@ Ignition on → tty1 autologin → server starts as a user service → cage +
 Chromium kiosk fullscreen in ~15-20 seconds. See `setup/README.md` for the
 per-step breakdown and verification.
 
+Once the kiosk works, seal the card read-only so the car's hard power-off
+can't corrupt it: `sudo fieldrig-seal`. Runtime writes then go to tmpfs, and
+the in-app UPDATE button briefly remounts read-write to pull updates. Full
+details in `setup/README.md`.
+
 ## Running on a dev machine
 
 No car required — hardware pieces degrade gracefully (waveform

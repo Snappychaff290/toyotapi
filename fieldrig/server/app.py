@@ -35,6 +35,9 @@ log = get_module_logger("server")
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
+# Privileged helper that flips the root filesystem ro/rw (see setup/06).
+FS_HELPER = "/usr/local/sbin/fieldrig-mount"
+
 
 async def _run(*args: str, cwd: str | None = None,
                timeout: float = 120) -> tuple[int, str]:
@@ -49,6 +52,12 @@ async def _run(*args: str, cwd: str | None = None,
         proc.kill()
         return 1, "timed out"
     return proc.returncode or 0, (out or b"").decode(errors="replace").strip()
+
+
+async def _root_is_readonly() -> bool:
+    """True when / is mounted read-only (the sealed car state)."""
+    _, opts = await _run("findmnt", "-no", "OPTIONS", "/")
+    return "ro" in opts.split(",")
 
 
 class Hub:
@@ -103,16 +112,10 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="FieldRig", version=__version__, lifespan=lifespan)
 
-    async def do_update(_m: dict) -> None:
-        """Pull the latest code and restart the service, if online.
-
-        Restarts via systemd with --no-block so the request survives this
-        process being killed; the page reloads itself once it reconnects to
-        the freshly started server (see app.js).
-        """
-        def emit(stage: str, message: str) -> None:
-            bus.emit("update_status", {"stage": stage, "message": message})
-
+    async def _pull_and_install(emit) -> bool:
+        """Do the actual git pull + optional dep install. Returns True if new
+        code landed and the service should restart. Assumes the filesystem is
+        already writable (caller handles the read-only car state)."""
         _, before = await _run("git", "rev-parse", "HEAD", cwd=str(REPO_DIR))
 
         emit("pulling", "PULLING LATEST…")
@@ -130,10 +133,10 @@ def create_app() -> FastAPI:
             else:
                 tail = out.splitlines()[-1] if out else "error"
                 emit("error", f"GIT PULL FAILED: {tail}")
-            return
+            return False
         if "up to date" in out.lower():
             emit("uptodate", "ALREADY UP TO DATE")
-            return
+            return False
 
         # If the pull touched dependency metadata, reinstall into the venv
         # before restarting — otherwise new packages would be missing.
@@ -150,14 +153,43 @@ def create_app() -> FastAPI:
             if code != 0:
                 tail = out.splitlines()[-1] if out else "error"
                 emit("error", f"DEP INSTALL FAILED: {tail}")
+                return False
+        return True
+
+    async def do_update(_m: dict) -> None:
+        """Pull the latest code and restart the service.
+
+        On the sealed car the root filesystem is read-only, so we briefly
+        remount it read-write, pull, then re-seal it — leaving it exactly as
+        we found it. Restarts via systemd with --no-block so the request
+        survives this process being killed; the page reloads itself once it
+        reconnects to the freshly started server (see app.js).
+        """
+        def emit(stage: str, message: str) -> None:
+            bus.emit("update_status", {"stage": stage, "message": message})
+
+        was_readonly = await _root_is_readonly()
+        if was_readonly:
+            emit("unlocking", "UNLOCKING FILESYSTEM…")
+            code, _ = await _run("sudo", "-n", FS_HELPER, "rw")
+            if code != 0:
+                emit("error", "COULD NOT UNLOCK FILESYSTEM")
                 return
 
-        log.info("update pulled new code, restarting service")
-        emit("applying", "UPDATED — RESTARTING…")
-        code, out = await _run("systemctl", "--user", "restart", "--no-block",
-                               "fieldrig-server.service", timeout=15)
-        if code != 0:
-            emit("manual", "UPDATED — RESTART REQUIRED")
+        try:
+            updated = await _pull_and_install(emit)
+        finally:
+            if was_readonly:
+                await _run("sync")
+                await _run("sudo", "-n", FS_HELPER, "ro")
+
+        if updated:
+            log.info("update pulled new code, restarting service")
+            emit("applying", "UPDATED — RESTARTING…")
+            code, _ = await _run("systemctl", "--user", "restart", "--no-block",
+                                 "fieldrig-server.service", timeout=15)
+            if code != 0:
+                emit("manual", "UPDATED — RESTART REQUIRED")
 
     # Commands the page may send over /ws. Each returns a coroutine.
     commands = {

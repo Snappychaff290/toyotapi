@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Remount the root (and boot firmware) filesystem read-write or read-only.
+# Installed to /usr/local/sbin; the FieldRig user may run it without a
+# password via /etc/sudoers.d/fieldrig so the in-app UPDATE button works.
+set -euo pipefail
+
+case "${1:-}" in
+    rw)
+        mount -o remount,rw /
+        mount -o remount,rw /boot/firmware 2>/dev/null || true
+        ;;
+    ro)
+        sync
+        mount -o remount,ro /
+        mount -o remount,ro /boot/firmware 2>/dev/null || true
+        ;;
+    *)
+        echo "usage: fieldrig-mount {rw|ro}" >&2
+        exit 2
+        ;;
+esac
