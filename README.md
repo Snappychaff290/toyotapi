@@ -78,9 +78,19 @@ setup/               Phase 1 install scripts for the Pi (see setup/README.md)
 
 ## Running on the Pi
 
-Follow `setup/README.md` (flash Manjaro ARM KDE, run scripts 01-05,
-reboot). Ignition on → server starts as a user service → Chromium
-kiosk fullscreen in ~15-20 seconds.
+Flash Raspberry Pi OS Lite 64-bit, clone the repo, and run the one-shot
+installer:
+
+```bash
+git clone <repo> ~/fieldrig
+cd ~/fieldrig
+./install.sh
+sudo reboot
+```
+
+Ignition on → tty1 autologin → server starts as a user service → cage +
+Chromium kiosk fullscreen in ~15-20 seconds. See `setup/README.md` for the
+per-step breakdown and verification.
 
 ## Running on a dev machine
 

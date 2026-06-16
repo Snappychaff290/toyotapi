@@ -13,7 +13,20 @@ touch-configured kiosk that boots straight into the FieldRig app.
    git clone <repo> ~/fieldrig
    ```
 
-## Steps 1-5 — Run the scripts in order
+## One-shot install (recommended)
+
+From the repo root, run the whole thing with a single command:
+
+```bash
+cd ~/fieldrig
+./install.sh           # runs steps 01-05 in order
+sudo reboot
+```
+
+`./install.sh --reboot` reboots automatically when it finishes. Run it as
+your normal user (not root) — it installs per-user systemd services.
+
+## Or run the steps individually
 
 ```bash
 cd ~/fieldrig/setup

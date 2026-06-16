@@ -12,9 +12,12 @@ sudo apt-get install -y \
     git build-essential curl \
     pipewire pipewire-audio pipewire-alsa pipewire-pulse wireplumber \
     bluez \
-    chromium cage seatd \
+    cage seatd \
     portaudio19-dev libgpiod-dev gpiod \
     fonts-jetbrains-mono
+
+echo "==> Installing Chromium (package name varies across Pi OS releases)"
+sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser
 
 echo "==> Creating seat group and enabling seatd"
 sudo groupadd -r seat 2>/dev/null || true
