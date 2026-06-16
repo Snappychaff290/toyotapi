@@ -60,6 +60,27 @@ async def _root_is_readonly() -> bool:
     return "ro" in opts.split(",")
 
 
+# Persisted UI settings (theme colour, ...). Lives in the user's home, so it
+# survives reboots; writing it needs a read-write window under the sealed root.
+SETTINGS_FILE = Path.home() / ".config" / "fieldrig" / "settings.json"
+DEFAULT_THEME = {"h": 135, "s": "100%"}
+
+
+def _load_theme() -> dict:
+    try:
+        t = json.loads(SETTINGS_FILE.read_text()).get("theme") or {}
+        return {"h": int(t["h"]), "s": str(t["s"])}
+    except Exception:
+        return dict(DEFAULT_THEME)
+
+
+def _sanitize_theme(h: Any, s: Any) -> dict:
+    """Clamp to a safe hue/saturation; these get interpolated into CSS."""
+    hue = max(0, min(360, int(h)))
+    sat = max(0, min(100, int(str(s).rstrip("%"))))
+    return {"h": hue, "s": f"{sat}%"}
+
+
 class Hub:
     """Fans every bus event out to all connected websocket clients."""
 
@@ -156,6 +177,34 @@ def create_app() -> FastAPI:
                 return False
         return True
 
+    async def set_theme(m: dict) -> None:
+        """Persist the chosen phosphor colour and broadcast it to all clients.
+        Briefly remounts read-write if the root is sealed (same as updates)."""
+        try:
+            theme = _sanitize_theme(m.get("h"), m.get("s"))
+        except (TypeError, ValueError):
+            return
+
+        was_readonly = await _root_is_readonly()
+        if was_readonly:
+            await _run("sudo", "-n", FS_HELPER, "rw")
+        try:
+            SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                data = json.loads(SETTINGS_FILE.read_text())
+            except Exception:
+                data = {}
+            data["theme"] = theme
+            SETTINGS_FILE.write_text(json.dumps(data))
+        except OSError:
+            log.warning("could not persist theme to %s", SETTINGS_FILE)
+        finally:
+            if was_readonly:
+                await _run("sync")
+                await _run("sudo", "-n", FS_HELPER, "ro")
+
+        bus.emit("theme_update", theme)
+
     async def do_update(_m: dict) -> None:
         """Pull the latest code and restart the service.
 
@@ -205,12 +254,14 @@ def create_app() -> FastAPI:
         "bt_disconnect": lambda m: audio.bt_disconnect(m["mac"]),
         "bt_remove": lambda m: audio.bt_remove(m["mac"]),
         "app_update": do_update,
+        "set_theme": set_theme,
     }
 
     @app.get("/api/state")
     async def state() -> dict:
         return {
             "version": __version__,
+            "theme": _load_theme(),
             "audio": await audio.ui_data(),
             "statuses": await manager.statuses(),
         }

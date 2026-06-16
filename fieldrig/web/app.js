@@ -35,6 +35,19 @@ function send(cmd, extra = {}) {
   }
 }
 
+/* ---------- theme ---------- */
+
+function applyTheme(h, s) {
+  const root = document.documentElement;
+  root.style.setProperty("--h", String(h));
+  root.style.setProperty("--s", s);
+  // Cache for instant re-apply on the next page load (e.g. post-update reload).
+  try { localStorage.setItem("fr-theme", JSON.stringify({ h, s })); } catch (e) {}
+  $$("#swatches .swatch").forEach((b) =>
+    b.classList.toggle("current",
+      b.dataset.h === String(h) && b.dataset.s === s));
+}
+
 /* ---------- screen switching ---------- */
 
 function show(name) {
@@ -54,6 +67,10 @@ document.addEventListener("click", (e) => {
   const button = e.target.closest("button");
   if (!button) return;
   if (button.dataset.screen) show(button.dataset.screen);
+  else if (button.dataset.h !== undefined) {
+    applyTheme(button.dataset.h, button.dataset.s);     // instant, local
+    send("set_theme", { h: Number(button.dataset.h), s: button.dataset.s });
+  }
   else if (button.dataset.cmd) send(button.dataset.cmd);
   else if (button.dataset.bt) {
     if (selectedMac === null) {
@@ -204,6 +221,7 @@ function connect() {
     else if (event === "bluetooth_update") onBluetooth(data);
     else if (event === "system_update") onSystem(data);
     else if (event === "update_status") onUpdate(data);
+    else if (event === "theme_update") applyTheme(data.h, data.s);
     if (!NOISY.has(event)) feed(event, data);
   };
   ws.onopen = () => {
@@ -218,12 +236,20 @@ function connect() {
 
 /* ---------- boot ---------- */
 
+// Apply the cached theme immediately so there's no green flash before the
+// server's saved theme arrives.
+try {
+  const t = JSON.parse(localStorage.getItem("fr-theme") || "null");
+  if (t) applyTheme(t.h, t.s);
+} catch (e) {}
+
 fetch("/api/state")
   .then((r) => r.json())
   .then((snapshot) => {
     $("#frame-sub").textContent = `v${snapshot.version} ▞▞`;
     const sv = $("#sys-version");
     if (sv) sv.textContent = `v${snapshot.version}`;
+    if (snapshot.theme) applyTheme(snapshot.theme.h, snapshot.theme.s);
     onAudio(snapshot.audio);
   })
   .catch(() => {});

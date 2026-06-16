@@ -3,13 +3,20 @@
    #006618 tertiary, #003b00 borders, #001a00 raised surfaces. */
 
 :root {
-  --bright: #00ff41;
-  --mid: #00d938;
-  --dim: #008f25;
-  --dimmer: #006618;
-  --border: #003b00;
-  --border-hi: #00802a;
-  --raised: #001a00;
+  /* Phosphor hue + saturation. The theme picker on the SYSTEM screen
+     overrides these two at runtime; every shade below derives from them,
+     so changing them reskins the whole UI. Defaults to the classic green. */
+  --h: 135;
+  --s: 100%;
+
+  --bright:    hsl(var(--h) var(--s) 50%);
+  --mid:       hsl(var(--h) var(--s) 42%);
+  --dim:       hsl(var(--h) var(--s) 28%);
+  --dimmer:    hsl(var(--h) var(--s) 20%);
+  --border:    hsl(var(--h) var(--s) 12%);
+  --border-hi: hsl(var(--h) var(--s) 25%);
+  --raised:    hsl(var(--h) var(--s) 6%);
+  --glow:      hsl(var(--h) var(--s) 55% / 0.45);
   --bg: #0d0d0d;
 }
 
@@ -106,7 +113,7 @@ body::after {
   padding: 0 10px;
   font-weight: 700;
   color: var(--bright);
-  text-shadow: 0 0 6px rgba(0, 255, 65, 0.45);
+  text-shadow: 0 0 6px var(--glow);
 }
 
 .frame-sub {
@@ -161,7 +168,7 @@ body::after {
 .np-title {
   font-size: 22px;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+  text-shadow: 0 0 8px var(--glow);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -189,7 +196,7 @@ body::after {
 .gauge-val {
   font-size: 30px;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+  text-shadow: 0 0 8px var(--glow);
 }
 
 .gauge-unit { font-size: 12px; letter-spacing: 1px; margin-top: 2px; }
@@ -245,6 +252,26 @@ button.current {
 
 .spacer { width: 26px; }
 
+/* --- theme swatches (SYSTEM screen) --- */
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.swatch {
+  min-width: 96px;
+  color: var(--sw);
+  border-color: var(--sw);
+}
+
+.swatch.current {
+  background: var(--sw);
+  color: var(--bg);
+}
+
 /* --- nav rail --- */
 
 #navbar {
@@ -288,7 +315,7 @@ button.current {
 .card .glyph {
   font-size: 44px;
   margin-bottom: 14px;
-  text-shadow: 0 0 12px rgba(0, 255, 65, 0.5);
+  text-shadow: 0 0 12px var(--glow);
 }
 
 .card .dim, .card .dimmer { margin-top: 10px; }
