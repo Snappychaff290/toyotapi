@@ -90,11 +90,12 @@ body::after {
 #frame {
   position: relative;
   flex: 1 1 auto;
-  margin: 8px 14px 10px;
+  /* Top/bottom margins leave room for the border labels (which sit at
+     top/bottom: -0.75em) to clear the status bar and nav bar. */
+  margin: 14px 14px 14px;
   border: 1px solid var(--border-hi);
   border-radius: 10px;
-  padding: 14px 18px 14px;
-  overflow: hidden;
+  padding: 10px 18px 10px;
 }
 
 .frame-title {
@@ -117,7 +118,7 @@ body::after {
   color: var(--dim);
 }
 
-.screen { display: none; height: 100%; flex-direction: column; }
+.screen { display: none; height: 100%; flex-direction: column; overflow: hidden; }
 .screen.active { display: flex; }
 
 /* --- panels --- */

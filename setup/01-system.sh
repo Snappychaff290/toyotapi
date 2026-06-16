@@ -41,8 +41,13 @@ cp files/mpris-proxy.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable mpris-proxy.service
 
-echo "==> Creating /var/log/fieldrig"
+echo "==> Creating /var/log/fieldrig (+ tmpfiles rule for a tmpfs /var/log)"
 sudo mkdir -p /var/log/fieldrig
 sudo chown "$USER" /var/log/fieldrig
+# Under the read-only root /var/log becomes a root-owned tmpfs each boot;
+# this recreates the app's log dir (user-owned) before the server starts.
+sed "s/%USER%/$USER/g" files/fieldrig-tmpfiles.conf \
+    | sudo tee /etc/tmpfiles.d/fieldrig.conf >/dev/null
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/fieldrig.conf
 
 echo "==> Done. Log out and back in for group changes, then: ./02-display.sh"
