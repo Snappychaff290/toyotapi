@@ -59,6 +59,10 @@ $BEGIN
 if [ -z "\$WAYLAND_DISPLAY" ] && [ "\$(tty)" = "/dev/tty1" ]; then
     export XCURSOR_THEME=fieldrig-hidden
     export XCURSOR_SIZE=24
+    # wlroots/cage on Pi OS doesn't search the home icon dirs by default, so
+    # it never finds the transparent theme above. XCURSOR_PATH points it there
+    # explicitly (home dirs first, then the system paths it normally uses).
+    export XCURSOR_PATH="\$HOME/.local/share/icons:\$HOME/.icons:/usr/share/icons:/usr/share/pixmaps"
     exec cage -- "\$HOME/.local/bin/fieldrig-launch"
 fi
 $END

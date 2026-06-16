@@ -158,33 +158,26 @@ class MPRIS:
         """Live metadata + playback state of the bound player. Returns None
         when nothing is bound.
 
-        Read through org.freedesktop.DBus.Properties (GetAll/Get) rather than
-        dbus-fast's introspection-generated property getters: bluez/mpris-proxy
-        players often under-declare their properties in introspection, so the
-        generated getters can be missing even though the properties work at
-        runtime -- which silently emptied the now-playing panel. GetAll always
-        reflects what the player actually implements."""
+        Each property is fetched individually with Properties.Get -- the proven
+        path from the old busctl implementation. bluez/mpris-proxy players
+        answer per-property Get reliably but commonly return an *empty* GetAll,
+        which is what left the now-playing panel blank. We also don't use
+        dbus-fast's introspection-generated getters, since those players tend
+        to under-declare their properties in introspection."""
         if self._props is None:
             return None
-        try:
-            raw = await self._props.call_get_all(PLAYER_IFACE)
-        except Exception:
-            # The player likely vanished between the signal and this read.
-            self._unbind()
-            return None
-        props = {k: _val(v) for k, v in (raw or {}).items()}
 
-        meta = {k: _val(v) for k, v in (props.get("Metadata") or {}).items()}
-        status = props.get("PlaybackStatus") or "Stopped"
-        # Position is often absent from GetAll; ask for it on its own and shrug
-        # if the player doesn't expose it (many BT players don't).
-        position = props.get("Position")
-        if position is None:
+        async def get(name: str) -> Any:
             try:
-                position = _val(await self._props.call_get(PLAYER_IFACE, "Position"))
+                return _val(await self._props.call_get(PLAYER_IFACE, name))
             except Exception:
-                position = None
+                return None
 
+        meta_raw = await get("Metadata")
+        status = await get("PlaybackStatus")
+        position = await get("Position")  # microseconds; many BT players omit it
+
+        meta = {k: _val(v) for k, v in (meta_raw or {}).items()}
         artist = meta.get("xesam:artist")
         if isinstance(artist, list):
             artist = ", ".join(artist)
