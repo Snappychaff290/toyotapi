@@ -15,6 +15,9 @@ let ws = null;
 let selectedMac = null;
 let btDevices = [];
 let pendingReload = false;
+// Last known track progress; the bar is advanced locally between updates
+// because MPRIS (by spec) doesn't push Position changes. See renderProgress().
+let npState = { position: null, length: null, status: "Stopped", at: 0 };
 
 /* ---------- helpers ---------- */
 
@@ -37,45 +40,120 @@ function send(cmd, extra = {}) {
 
 /* ---------- theme ---------- */
 
-// Lightness of each shade; the whole palette is one hue+saturation at these.
-const SHADE_L = {
-  "--bright": 50, "--mid": 42, "--dim": 28, "--dimmer": 20,
-  "--border": 12, "--border-hi": 25, "--raised": 6,
+/* A theme is four colour roles, each {h, s}. Every CSS shade is derived from
+   one role at a fixed lightness, so presets stay compact and the custom sliders
+   need only a hue + sat per role. Roles:
+     accent  -- live data, default text, gauges, primary buttons, glow, wave top
+     chrome  -- panel titles, progress, body text on panels, waveform base
+     surface -- backgrounds, panels, borders (keep saturation low for greys)
+     muted   -- secondary / tertiary text                                      */
+
+const THEME_ROLES = ["accent", "chrome", "surface", "muted"];
+
+// role -> [[cssVar, lightness%], ...]. --glow and the waveform are separate.
+const THEME_MAP = {
+  accent:  [["--bright", 52]],
+  chrome:  [["--mid", 46]],
+  muted:   [["--dim", 34], ["--dimmer", 22]],
+  surface: [["--bg", 6], ["--raised", 10], ["--border", 18], ["--border-hi", 30]],
 };
-let theme = { h: 135, s: 100 };
-// Waveform gradient colours, kept in sync with the theme (canvas can't read
-// CSS variables, so we compute them here).
-let waveLo = "hsl(135, 100%, 28%)";
-let waveHi = "hsl(135, 100%, 50%)";
 
-function applyTheme(h, s) {
-  h = Math.round(Number(h));
-  s = Math.round(parseFloat(s));            // accepts 100 or "100%"
-  if (!Number.isFinite(h) || !Number.isFinite(s)) return;
-  theme = { h, s };
+const PRESETS = [
+  { name: "GREEN",  accent: {h:135,s:100}, chrome: {h:135,s:85}, surface: {h:135,s:12}, muted: {h:135,s:40} },
+  { name: "AMBER",  accent: {h:40,s:100},  chrome: {h:33,s:90},  surface: {h:35,s:10},  muted: {h:38,s:45} },
+  { name: "PURPLE", accent: {h:275,s:80},  chrome: {h:300,s:62}, surface: {h:270,s:10}, muted: {h:282,s:28} },
+  { name: "ORANGE", accent: {h:25,s:95},   chrome: {h:42,s:88},  surface: {h:25,s:8},   muted: {h:30,s:32} },
+  { name: "ICE",    accent: {h:190,s:90},  chrome: {h:205,s:72}, surface: {h:200,s:10}, muted: {h:198,s:28} },
+  { name: "EMBER",  accent: {h:0,s:82},    chrome: {h:18,s:88},  surface: {h:0,s:9},    muted: {h:6,s:30} },
+  { name: "SYNTH",  accent: {h:315,s:90},  chrome: {h:250,s:80}, surface: {h:260,s:14}, muted: {h:290,s:34} },
+  { name: "MONO",   accent: {h:0,s:0},     chrome: {h:0,s:0},    surface: {h:0,s:0},    muted: {h:0,s:0} },
+];
 
-  const root = document.documentElement;
-  for (const v in SHADE_L)
-    root.style.setProperty(v, `hsl(${h}, ${s}%, ${SHADE_L[v]}%)`);
-  root.style.setProperty("--glow", `hsla(${h}, ${s}%, 55%, 0.45)`);
-  waveLo = `hsl(${h}, ${s}%, 28%)`;
-  waveHi = `hsl(${h}, ${s}%, 50%)`;
+const DEFAULT_THEME = PRESETS[0];
+let theme = JSON.parse(JSON.stringify(DEFAULT_THEME));
+// Waveform gradient (canvas can't read CSS vars, so we compute them here).
+let waveLo = "hsl(135, 85%, 38%)";
+let waveHi = "hsl(135, 100%, 52%)";
 
-  // Cache for instant re-apply on the next load (e.g. post-update reload).
-  try { localStorage.setItem("fr-theme", JSON.stringify(theme)); } catch (e) {}
-
-  // Keep the controls in sync (slider drag, swatch tap, or remote update).
-  if ($("#hue")) $("#hue").value = h;
-  if ($("#sat")) $("#sat").value = s;
-  if ($("#hue-val")) $("#hue-val").textContent = `${h}°`;
-  if ($("#sat-val")) $("#sat-val").textContent = `${s}%`;
-  $$("#swatches .swatch").forEach((b) =>
-    b.classList.toggle("current",
-      Number(b.dataset.h) === h && parseInt(b.dataset.s, 10) === s));
+function normTheme(t) {
+  const out = {};
+  for (const role of THEME_ROLES) {
+    const c = (t && t[role]) || DEFAULT_THEME[role];
+    out[role] = {
+      h: Math.max(0, Math.min(360, Math.round(Number(c.h)))),
+      s: Math.max(0, Math.min(100, Math.round(Number(String(c.s).replace("%", ""))))),
+    };
+  }
+  return out;
 }
 
+function sameTheme(a, b) {
+  return THEME_ROLES.every((r) => a[r].h === b[r].h && a[r].s === b[r].s);
+}
+
+// Apply locally only. Persistence is explicit: presets persist, custom doesn't.
+function applyTheme(t) {
+  theme = normTheme(t);
+  const root = document.documentElement;
+  for (const role of THEME_ROLES) {
+    const { h, s } = theme[role];
+    for (const [v, l] of THEME_MAP[role])
+      root.style.setProperty(v, `hsl(${h}, ${s}%, ${l}%)`);
+  }
+  const a = theme.accent, c = theme.chrome;
+  root.style.setProperty("--glow", `hsla(${a.h}, ${a.s}%, 58%, 0.45)`);
+  waveHi = `hsl(${a.h}, ${a.s}%, 52%)`;
+  waveLo = `hsl(${c.h}, ${c.s}%, 38%)`;
+
+  // Highlight the matching preset, or CUSTOM if it's a one-off.
+  const match = PRESETS.find((p) => sameTheme(normTheme(p), theme));
+  $$("#theme-presets .preset[data-preset]").forEach((b) =>
+    b.classList.toggle("current", !!match && b.dataset.preset === match.name));
+  const customBtn = $("#theme-custom-btn");
+  if (customBtn) customBtn.classList.toggle("current", !match);
+  syncCustomControls();
+}
+
+// Mirror the active theme onto the custom sliders + their preview swatches.
+function syncCustomControls() {
+  for (const role of THEME_ROLES) {
+    const { h, s } = theme[role];
+    const hEl = $(`#ch-${role}`), sEl = $(`#cs-${role}`), sw = $(`#sw-${role}`);
+    if (hEl) hEl.value = h;
+    if (sEl) sEl.value = s;
+    if (sw) sw.style.background = `hsl(${h}, ${s}%, 50%)`;
+  }
+}
+
+// Save the current theme (presets only — custom edits never call this).
 function persistTheme() {
-  send("set_theme", { h: theme.h, s: `${theme.s}%` });
+  try { localStorage.setItem("fr-theme", JSON.stringify(theme)); } catch (e) {}
+  send("set_theme", { theme });
+}
+
+// Build a theme from the custom sliders and apply it live, never persisted.
+function applyCustomFromSliders() {
+  const t = {};
+  for (const role of THEME_ROLES)
+    t[role] = { h: Number($(`#ch-${role}`).value), s: Number($(`#cs-${role}`).value) };
+  applyTheme(t);
+}
+
+// Build the preset buttons from PRESETS, each previewing its own colours.
+function buildPresets() {
+  const wrap = $("#theme-presets");
+  const customBtn = $("#theme-custom-btn");
+  if (!wrap) return;
+  PRESETS.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "preset";
+    b.dataset.preset = p.name;
+    b.textContent = p.name;
+    b.style.color = `hsl(${p.accent.h}, ${p.accent.s}%, 58%)`;
+    b.style.borderColor = `hsl(${p.chrome.h}, ${p.chrome.s}%, 46%)`;
+    b.style.background = `hsl(${p.surface.h}, ${p.surface.s}%, 9%)`;
+    wrap.insertBefore(b, customBtn);   // keep CUSTOM last
+  });
 }
 
 /* ---------- screen rotation ---------- */
@@ -123,9 +201,18 @@ document.addEventListener("click", (e) => {
   const button = e.target.closest("button");
   if (!button) return;
   if (button.dataset.screen) show(button.dataset.screen);
-  else if (button.dataset.h !== undefined) {
-    applyTheme(button.dataset.h, button.dataset.s);     // instant, local
-    persistTheme();
+  else if (button.dataset.preset !== undefined) {
+    const p = PRESETS.find((x) => x.name === button.dataset.preset);
+    if (p) { applyTheme(p); persistTheme(); }           // instant + saved
+    $("#custom-theme").classList.add("hidden");
+  }
+  else if (button.dataset.themeCustom !== undefined) {
+    // Reveal the live sliders seeded from the current colours (not saved).
+    $("#custom-theme").classList.remove("hidden");
+    syncCustomControls();
+    $$("#theme-presets .preset[data-preset]").forEach((b) =>
+      b.classList.remove("current"));
+    button.classList.add("current");
   }
   else if (button.dataset.rot !== undefined) {
     applyRotation(button.dataset.rot);                  // instant, local
@@ -149,6 +236,26 @@ document.addEventListener("click", (e) => {
 
 /* ---------- event handlers ---------- */
 
+// Draw the now-playing bar from npState, interpolating position locally while
+// playing so it advances smoothly between the server's (event-driven) updates.
+function renderProgress() {
+  const { position, length, status, at } = npState;
+  const icon = STATUS_ICONS[status] || "⏹";
+  let bar = "┄".repeat(PROGRESS_WIDTH);
+  let timing = "";
+  if (Number.isFinite(position) && Number.isFinite(length) && length > 0) {
+    let pos = position;
+    if (status === "Playing") pos += (performance.now() - at) * 1000;  // ms→µs
+    pos = Math.max(0, Math.min(length, pos));
+    const filled = Math.round(PROGRESS_WIDTH * (pos / length));
+    bar = "═".repeat(filled) + "┄".repeat(PROGRESS_WIDTH - filled);
+    timing = `  ${fmtTime(pos)} / ${fmtTime(length)}`;
+  }
+  $$(".v-np-progress").forEach((el) => {
+    el.textContent = `${icon}  ╞${bar}╡${timing}`;
+  });
+}
+
 function onAudio(state) {
   if (!state) return;
   const hasTitle = Boolean(state.title);
@@ -165,19 +272,14 @@ function onAudio(state) {
     }
   });
 
-  const icon = STATUS_ICONS[state.status] || "⏹";
-  let bar = "┄".repeat(PROGRESS_WIDTH);
-  let timing = "";
-  if (Number.isFinite(state.position) && Number.isFinite(state.length)
-      && state.length > 0) {
-    const filled = Math.round(PROGRESS_WIDTH
-      * Math.min(1, state.position / state.length));
-    bar = "═".repeat(filled) + "┄".repeat(PROGRESS_WIDTH - filled);
-    timing = `  ${fmtTime(state.position)} / ${fmtTime(state.length)}`;
-  }
-  $$(".v-np-progress").forEach((el) => {
-    el.textContent = `${icon}  ╞${bar}╡${timing}`;
-  });
+  // Re-anchor the progress bar; renderProgress() advances it from here.
+  npState = {
+    position: Number.isFinite(state.position) ? state.position : null,
+    length: Number.isFinite(state.length) ? state.length : null,
+    status: state.status || "Stopped",
+    at: performance.now(),
+  };
+  renderProgress();
 
   const volume = state.volume ?? 0;
   $$(".v-source").forEach((el) => { el.textContent = state.source || "--"; });
@@ -285,7 +387,7 @@ function connect() {
     else if (event === "bluetooth_update") onBluetooth(data);
     else if (event === "system_update") onSystem(data);
     else if (event === "update_status") onUpdate(data);
-    else if (event === "theme_update") applyTheme(data.h, data.s);
+    else if (event === "theme_update") applyTheme(data);
     else if (event === "rotation_update") applyRotation(data.deg);
     if (!NOISY.has(event)) feed(event, data);
   };
@@ -301,19 +403,21 @@ function connect() {
 
 /* ---------- boot ---------- */
 
-// Sliders: recolor live while dragging, persist once on release.
-["hue", "sat"].forEach((id) => {
-  const el = $(`#${id}`);
-  if (!el) return;
-  el.addEventListener("input", () => applyTheme($("#hue").value, $("#sat").value));
-  el.addEventListener("change", persistTheme);
+buildPresets();
+
+// Custom sliders recolour live while dragging; they are never persisted.
+THEME_ROLES.forEach((role) => {
+  [`ch-${role}`, `cs-${role}`].forEach((id) => {
+    const el = $(`#${id}`);
+    if (el) el.addEventListener("input", applyCustomFromSliders);
+  });
 });
 
-// Apply the cached theme immediately so there's no green flash before the
-// server's saved theme arrives.
+// Apply the cached theme immediately so there's no colour flash before the
+// server's saved theme arrives. (Cache only ever holds a saved preset.)
 try {
   const t = JSON.parse(localStorage.getItem("fr-theme") || "null");
-  if (t) applyTheme(t.h, t.s);
+  if (t) applyTheme(t);
 } catch (e) {}
 
 // Same for the saved orientation.
@@ -328,7 +432,7 @@ fetch("/api/state")
     $("#frame-sub").textContent = `v${snapshot.version} ▞▞`;
     const sv = $("#sys-version");
     if (sv) sv.textContent = `v${snapshot.version}`;
-    if (snapshot.theme) applyTheme(snapshot.theme.h, snapshot.theme.s);
+    if (snapshot.theme) applyTheme(snapshot.theme);
     if (snapshot.rotation != null) applyRotation(snapshot.rotation);
     onAudio(snapshot.audio);
   })
@@ -338,6 +442,9 @@ setInterval(() => {
   $("#clock").textContent =
     new Date().toTimeString().slice(0, 5);
 }, 1000);
+
+// Advance the progress bar locally between server updates (see renderProgress).
+setInterval(renderProgress, 250);
 
 connect();
 show("home");

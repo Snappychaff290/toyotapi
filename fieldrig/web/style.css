@@ -291,25 +291,40 @@ button.current {
 
 .spacer { width: 26px; }
 
-/* --- theme swatches (SYSTEM screen) --- */
+/* --- theme presets + custom sliders (SYSTEM screen) --- */
 
-.swatches {
+.presets {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 6px;
 }
 
-.swatch {
-  min-width: 96px;
-  color: var(--sw);
-  border-color: var(--sw);
+/* Per-button colours (accent text / chrome border / surface bg) are set from
+   the PRESETS table in app.js so each button previews its own scheme. */
+.preset { min-width: 104px; }
+.preset.current { outline: 2px solid var(--bright); outline-offset: 1px; }
+
+.custom-theme { margin-top: 14px; }
+.custom-theme.hidden { display: none; }
+
+.crow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
 }
 
-.swatch.current {
-  background: var(--sw);
-  color: var(--bg);
+.csw {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border-hi);
+  flex: 0 0 auto;
 }
+
+.crow .clabel { width: 74px; color: var(--mid); font-weight: 700; }
+.crow label { color: var(--dim); font-weight: 700; }
 
 /* --- orientation buttons (SYSTEM screen) --- */
 
@@ -322,16 +337,6 @@ button.current {
 
 .rotbtn { flex: 1 1 0; min-width: 150px; }
 .rotbtn.current { background: var(--border); border-color: var(--bright); }
-
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.slider-row label { width: 42px; color: var(--mid); font-weight: 700; }
-.slider-row .val { width: 52px; color: var(--dim); text-align: right; }
 
 input[type="range"] {
   flex: 1 1 auto;

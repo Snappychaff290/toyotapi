@@ -63,22 +63,54 @@ async def _root_is_readonly() -> bool:
 # Persisted UI settings (theme colour, ...). Lives in the user's home, so it
 # survives reboots; writing it needs a read-write window under the sealed root.
 SETTINGS_FILE = Path.home() / ".config" / "fieldrig" / "settings.json"
-DEFAULT_THEME = {"h": 135, "s": "100%"}
+
+# A theme is four colour roles (accent/chrome/surface/muted), each a hue +
+# saturation; the front end derives every CSS shade from them (see web/app.js).
+THEME_ROLES = ("accent", "chrome", "surface", "muted")
+DEFAULT_THEME = {
+    "accent":  {"h": 135, "s": 100},
+    "chrome":  {"h": 135, "s": 85},
+    "surface": {"h": 135, "s": 12},
+    "muted":   {"h": 135, "s": 40},
+}
+
+
+def _migrate_theme(t: Any) -> Any:
+    """Upgrade the old single hue+sat theme to the four-role format, so a
+    settings.json written by an earlier build still themes sensibly."""
+    if isinstance(t, dict) and "accent" not in t and "h" in t:
+        h = int(t["h"])
+        s = max(0, min(100, int(str(t["s"]).rstrip("%"))))
+        return {
+            "accent":  {"h": h, "s": s},
+            "chrome":  {"h": h, "s": max(0, s - 15)},
+            "surface": {"h": h, "s": min(s, 12)},
+            "muted":   {"h": h, "s": min(s, 40)},
+        }
+    return t
+
+
+def _sanitize_theme(t: Any) -> dict:
+    """Validate + clamp a four-role theme; these values are interpolated into
+    CSS, so every role must end up a safe hue (0-360) + saturation (0-100)."""
+    if not isinstance(t, dict):
+        raise ValueError("theme must be an object")
+    out = {}
+    for role in THEME_ROLES:
+        c = t.get(role) or {}
+        out[role] = {
+            "h": max(0, min(360, int(c["h"]))),
+            "s": max(0, min(100, int(str(c["s"]).rstrip("%")))),
+        }
+    return out
 
 
 def _load_theme() -> dict:
     try:
-        t = json.loads(SETTINGS_FILE.read_text()).get("theme") or {}
-        return {"h": int(t["h"]), "s": str(t["s"])}
+        t = json.loads(SETTINGS_FILE.read_text()).get("theme")
+        return _sanitize_theme(_migrate_theme(t))
     except Exception:
-        return dict(DEFAULT_THEME)
-
-
-def _sanitize_theme(h: Any, s: Any) -> dict:
-    """Clamp to a safe hue/saturation; these get interpolated into CSS."""
-    hue = max(0, min(360, int(h)))
-    sat = max(0, min(100, int(str(s).rstrip("%"))))
-    return {"h": hue, "s": f"{sat}%"}
+        return {role: dict(c) for role, c in DEFAULT_THEME.items()}
 
 
 def _load_rotation() -> int:
@@ -209,10 +241,10 @@ def create_app() -> FastAPI:
         return True
 
     async def set_theme(m: dict) -> None:
-        """Persist the chosen phosphor colour and broadcast it to all clients."""
+        """Persist the chosen colour scheme and broadcast it to all clients."""
         try:
-            theme = _sanitize_theme(m.get("h"), m.get("s"))
-        except (TypeError, ValueError):
+            theme = _sanitize_theme(m.get("theme"))
+        except (TypeError, ValueError, KeyError):
             return
         await _save_setting("theme", theme)
         bus.emit("theme_update", theme)

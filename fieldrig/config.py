@@ -12,8 +12,11 @@ WAVEFORM_FPS = 10
 PROGRESS_WIDTH = 28
 
 # --- Audio ---
-MPRIS_POLL_SECONDS = 1.0
-BT_POLL_EVERY_N_TICKS = 5       # bluetooth state poll = every Nth audio poll
+# Real-time media updates are event-driven (D-Bus signals, see mpris.py); this
+# is only a slow heartbeat that corrects position drift and catches any missed
+# signal.
+MPRIS_RECONCILE_SECONDS = 3.0
+BT_POLL_EVERY_N_TICKS = 4       # bluetooth state poll = every Nth reconcile (~12s)
 BT_SCAN_SECONDS = 8
 # The Pi is the A2DP *sink*: phones pair to it and stream audio in,
 # which PipeWire routes out the aux jack to the amp.

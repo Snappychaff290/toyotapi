@@ -13,7 +13,7 @@ from typing import Any
 from ...config import (
     BT_DISCOVERABLE_SECONDS,
     BT_POLL_EVERY_N_TICKS,
-    MPRIS_POLL_SECONDS,
+    MPRIS_RECONCILE_SECONDS,
     VOLUME_STEP,
 )
 from ...core.module import Module
@@ -51,8 +51,12 @@ class AudioModule(Module):
         await self.channels.start()
         await self.agent.start()
         self.waveform.start()
+        # Push-based: the moment playback state changes on the bus, refresh and
+        # emit -- no waiting for the heartbeat below.
+        self.mpris.on_change = self._on_mpris_change
+        await self.mpris.connect()
         await self._poll_once()
-        self._task = asyncio.create_task(self._poll_loop())
+        self._task = asyncio.create_task(self._reconcile_loop())
         log.info("audio module up (pipewire=%s bluetooth=%s agent=%s mpris=%s waveform=%s)",
                  self.pw.available, self.bt.available, self.agent.active,
                  self.mpris.available, self.waveform.mode)
@@ -65,6 +69,7 @@ class AudioModule(Module):
             except asyncio.CancelledError:
                 pass
             self._task = None
+        await self.mpris.close()
         await self.agent.stop()
         self.waveform.stop()
 
@@ -89,15 +94,23 @@ class AudioModule(Module):
 
     # --- polling ----------------------------------------------------------
 
-    async def _poll_loop(self) -> None:
+    def _on_mpris_change(self) -> None:
+        """A D-Bus playback signal fired -- refresh + push immediately. Skips
+        the bluetooth scan; this is the hot path for play/pause/track changes."""
+        asyncio.ensure_future(self._poll_once(with_bluetooth=False))
+
+    async def _reconcile_loop(self) -> None:
+        """Slow heartbeat. Real-time updates come from _on_mpris_change; this
+        just corrects position drift, catches any missed signal, and refreshes
+        volume / bluetooth state."""
         tick = 0
         while True:
-            await asyncio.sleep(MPRIS_POLL_SECONDS)
+            await asyncio.sleep(MPRIS_RECONCILE_SECONDS)
             tick += 1
             try:
                 await self._poll_once(with_bluetooth=tick % BT_POLL_EVERY_N_TICKS == 0)
             except Exception:
-                log.exception("audio poll failed")
+                log.exception("audio reconcile failed")
 
     async def _poll_once(self, with_bluetooth: bool = True) -> None:
         playing = await self.mpris.now_playing()

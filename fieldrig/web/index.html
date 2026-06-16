@@ -204,26 +204,35 @@
       </div>
     </div>
     <div class="panel grow">
-      <span class="ptitle">▞ DISPLAY COLOR</span>
-      <span class="psub">PHOSPHOR HUE</span>
-      <div class="swatches" id="swatches">
-        <button class="swatch" data-h="135" data-s="100%" style="--sw:hsl(135,100%,50%)">GREEN</button>
-        <button class="swatch" data-h="40"  data-s="100%" style="--sw:hsl(40,100%,50%)">AMBER</button>
-        <button class="swatch" data-h="180" data-s="100%" style="--sw:hsl(180,100%,50%)">CYAN</button>
-        <button class="swatch" data-h="210" data-s="100%" style="--sw:hsl(210,100%,55%)">BLUE</button>
-        <button class="swatch" data-h="300" data-s="100%" style="--sw:hsl(300,100%,55%)">MAGENTA</button>
-        <button class="swatch" data-h="0"   data-s="100%" style="--sw:hsl(0,100%,55%)">RED</button>
-        <button class="swatch" data-h="135" data-s="0%"   style="--sw:hsl(0,0%,80%)">WHITE</button>
+      <span class="ptitle">▞ DISPLAY THEME</span>
+      <span class="psub">COLOR SCHEME</span>
+      <!-- Preset buttons are built from PRESETS in app.js so colours never
+           drift between the markup and the code. CUSTOM reveals live sliders. -->
+      <div class="presets" id="theme-presets">
+        <button class="preset" id="theme-custom-btn" data-theme-custom="1">✎ CUSTOM</button>
       </div>
-      <div class="slider-row">
-        <label>HUE</label>
-        <input type="range" id="hue" min="0" max="360" step="1">
-        <span class="val" id="hue-val">--</span>
-      </div>
-      <div class="slider-row">
-        <label>SAT</label>
-        <input type="range" id="sat" min="0" max="100" step="1">
-        <span class="val" id="sat-val">--</span>
+      <div id="custom-theme" class="custom-theme hidden">
+        <div class="dim">LIVE ONLY — CUSTOM COLOURS ARE NOT SAVED AND RESET ON REBOOT.</div>
+        <div class="crow">
+          <span class="csw" id="sw-accent"></span><span class="clabel">ACCENT</span>
+          <label>HUE</label><input type="range" id="ch-accent" min="0" max="360" step="1">
+          <label>SAT</label><input type="range" id="cs-accent" min="0" max="100" step="1">
+        </div>
+        <div class="crow">
+          <span class="csw" id="sw-chrome"></span><span class="clabel">CHROME</span>
+          <label>HUE</label><input type="range" id="ch-chrome" min="0" max="360" step="1">
+          <label>SAT</label><input type="range" id="cs-chrome" min="0" max="100" step="1">
+        </div>
+        <div class="crow">
+          <span class="csw" id="sw-surface"></span><span class="clabel">SURFACE</span>
+          <label>HUE</label><input type="range" id="ch-surface" min="0" max="360" step="1">
+          <label>SAT</label><input type="range" id="cs-surface" min="0" max="100" step="1">
+        </div>
+        <div class="crow">
+          <span class="csw" id="sw-muted"></span><span class="clabel">MUTED</span>
+          <label>HUE</label><input type="range" id="ch-muted" min="0" max="360" step="1">
+          <label>SAT</label><input type="range" id="cs-muted" min="0" max="100" step="1">
+        </div>
       </div>
     </div>
     <div class="controls">
