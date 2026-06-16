@@ -3,7 +3,13 @@ Description=FieldRig vehicle terminal server
 After=pipewire.service
 
 [Service]
-ExecStart=%h/.local/share/fieldrig/venv/bin/python -m fieldrig --host 127.0.0.1 --port 8000
+# Use the installed console-script, not `python -m fieldrig`: with -m the
+# working directory goes first on sys.path, and since the repo clone is a
+# directory literally named `fieldrig`, it shadows the installed package as
+# an empty namespace package and import fails. The entry-point script has no
+# such collision and works from any working directory.
+ExecStart=%h/.local/share/fieldrig/venv/bin/fieldrig --host 127.0.0.1 --port 8000
+WorkingDirectory=%h/.local/share/fieldrig
 Environment=FIELDRIG_ENABLE_SHUTDOWN=1
 Restart=on-failure
 RestartSec=3

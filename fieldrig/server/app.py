@@ -12,6 +12,7 @@ tag, Phase 5's maps are MapLibre GL JS against local MBTiles tiles.
 
 import asyncio
 import json
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -33,18 +34,6 @@ from ..modules.audio import AudioModule
 log = get_module_logger("server")
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
-
-
-async def _online(host: str = "github.com", port: int = 443,
-                  timeout: float = 4.0) -> bool:
-    """Quick TCP probe so we can say 'no internet' instead of hanging on git."""
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port), timeout)
-        writer.close()
-        return True
-    except Exception:
-        return False
 
 
 async def _run(*args: str, cwd: str | None = None,
@@ -124,20 +113,44 @@ def create_app() -> FastAPI:
         def emit(stage: str, message: str) -> None:
             bus.emit("update_status", {"stage": stage, "message": message})
 
-        emit("checking", "CHECKING CONNECTION…")
-        if not await _online():
-            emit("error", "NO INTERNET — UPDATE SKIPPED")
-            return
+        _, before = await _run("git", "rev-parse", "HEAD", cwd=str(REPO_DIR))
 
         emit("pulling", "PULLING LATEST…")
         code, out = await _run("git", "pull", "--ff-only", cwd=str(REPO_DIR))
         if code != 0:
-            tail = out.splitlines()[-1] if out else "error"
-            emit("error", f"GIT PULL FAILED: {tail}")
+            # Distinguish "offline" from a real git error by the message git
+            # prints, rather than pre-probing some host that may be blocked.
+            low = out.lower()
+            offline = ("could not resolve host", "temporary failure in name resolution",
+                       "unable to access", "could not read from remote repository",
+                       "network is unreachable", "no route to host",
+                       "connection timed out", "connection refused", "timed out")
+            if any(s in low for s in offline):
+                emit("error", "NO INTERNET — UPDATE SKIPPED")
+            else:
+                tail = out.splitlines()[-1] if out else "error"
+                emit("error", f"GIT PULL FAILED: {tail}")
             return
         if "up to date" in out.lower():
             emit("uptodate", "ALREADY UP TO DATE")
             return
+
+        # If the pull touched dependency metadata, reinstall into the venv
+        # before restarting — otherwise new packages would be missing.
+        _, changed = await _run("git", "diff", "--name-only", before, "HEAD",
+                                cwd=str(REPO_DIR))
+        if any(f in changed.split() for f in ("pyproject.toml", "requirements.txt")):
+            emit("deps", "INSTALLING DEPENDENCIES…")
+            code, out = await _run(sys.executable, "-m", "pip", "install",
+                                   "-e", f"{REPO_DIR}[pi]", timeout=600)
+            if code != 0:
+                # [pi] extras (e.g. gpiod) can fail on Pi OS; fall back to base.
+                code, out = await _run(sys.executable, "-m", "pip", "install",
+                                       "-e", str(REPO_DIR), timeout=600)
+            if code != 0:
+                tail = out.splitlines()[-1] if out else "error"
+                emit("error", f"DEP INSTALL FAILED: {tail}")
+                return
 
         log.info("update pulled new code, restarting service")
         emit("applying", "UPDATED — RESTARTING…")

@@ -34,15 +34,19 @@ class PowerMonitor:
     async def start(self) -> bool:
         try:
             import gpiod
-            from gpiod.line import Direction
+            from gpiod.line import Bias, Direction
         except ImportError:
             log.info("gpiod not available; power monitoring disabled")
             return False
         try:
+            # Pull-up so a disconnected/floating sense line reads HIGH
+            # (= power present), never a false power-loss shutdown. The
+            # ignition divider drives the pin HIGH when 12V is switched on.
             self._request = gpiod.request_lines(
                 "/dev/gpiochip0",
                 consumer="fieldrig-power",
-                config={self.pin: gpiod.LineSettings(direction=Direction.INPUT)},
+                config={self.pin: gpiod.LineSettings(
+                    direction=Direction.INPUT, bias=Bias.PULL_UP)},
             )
         except Exception:
             log.exception("could not claim GPIO %d", self.pin)
