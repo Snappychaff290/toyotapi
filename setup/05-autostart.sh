@@ -14,21 +14,44 @@ systemctl --user enable fieldrig-server.service
 echo "==> Installing kiosk launcher to ~/.local/bin/fieldrig-launch"
 install -Dm755 files/fieldrig-launch.sh "$HOME/.local/bin/fieldrig-launch"
 
+echo "==> Generating transparent cursor theme (hides the kiosk pointer)"
+# cage draws its own mouse pointer at screen centre (a touchscreen counts as a
+# pointer device, so it never moves away). CSS cursor:none only hides it over
+# the page; pointing XCURSOR_THEME at a transparent theme hides the
+# compositor's pointer too. The theme lives in home so it survives the
+# read-only seal.
+python3 files/make-blank-cursor.py "$HOME/.local/share/icons/fieldrig-hidden"
+
 echo "==> Adding cage kiosk to ~/.bash_profile (tty1 autologin hook)"
 PROFILE="$HOME/.bash_profile"
-MARKER="# FieldRig kiosk"
+BEGIN="# >>> FieldRig kiosk >>>"
+END="# <<< FieldRig kiosk <<<"
+touch "$PROFILE"
 
-if grep -q "$MARKER" "$PROFILE" 2>/dev/null; then
-    echo "    Already present in $PROFILE, skipping."
-else
-    cat >> "$PROFILE" <<'EOF'
+# Drop any previous block (current BEGIN/END region or the older single-marker
+# version) so re-running setup updates the launch hook in place.
+tmp="$(mktemp)"
+awk '
+    /^# >>> FieldRig kiosk >>>/  { skip=1 }
+    /^# FieldRig kiosk/          { skip=1; legacy=1 }
+    skip==0 { print }
+    /^# <<< FieldRig kiosk <<</  { skip=0 }
+    legacy && $0=="fi"          { skip=0; legacy=0 }
+' "$PROFILE" > "$tmp" && mv "$tmp" "$PROFILE"
 
-# FieldRig kiosk — launches cage+Chromium on tty1 autologin
-if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    exec cage -- "$HOME/.local/bin/fieldrig-launch"
+cat >> "$PROFILE" <<EOF
+
+$BEGIN
+# launches cage+Chromium on tty1 autologin. XCURSOR_THEME must be set for the
+# cage process (it draws the pointer), so it's exported here, not in the
+# launcher Chromium runs from.
+if [ -z "\$WAYLAND_DISPLAY" ] && [ "\$(tty)" = "/dev/tty1" ]; then
+    export XCURSOR_THEME=fieldrig-hidden
+    export XCURSOR_SIZE=24
+    exec cage -- "\$HOME/.local/bin/fieldrig-launch"
 fi
+$END
 EOF
-    echo "    Written to $PROFILE"
-fi
+echo "    Updated $PROFILE"
 
 echo "==> Done. Reboot to test: ignition on -> FieldRig fullscreen."

@@ -24,7 +24,11 @@
       "Bash(bash -n /mnt/c/Projects/toyota-pi/setup/01-system.sh)",
       "Bash(bash -n setup/files/fieldrig-status)",
       "Bash(bash -n setup/06-readonly.sh)",
-      "Bash(findmnt -no OPTIONS /)"
+      "Bash(findmnt -no OPTIONS /)",
+      "Bash(python3 /mnt/c/Projects/toyota-pi/setup/files/make-blank-cursor.py /tmp/fieldrig-hidden)",
+      "Bash(python3 -c ' *)",
+      "Bash(bash -n setup/05-autostart.sh)",
+      "Bash(python3 -m py_compile setup/files/make-blank-cursor.py)"
     ]
   }
 }

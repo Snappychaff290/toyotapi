@@ -35,7 +35,7 @@ cd ~/fieldrig/setup
 ./02-display.sh          # fonts for the kiosk
 ./03-autologin.sh        # console autologin on tty1 (no display manager)
 ./04-python-env.sh       # venv + FieldRig install with Pi extras
-./05-autostart.sh        # server user service + cage kiosk launcher on login
+./05-autostart.sh        # server service + cage kiosk launcher + hidden cursor
 ./06-readonly.sh --no-seal  # read-only tooling + tmpfs (stays writable)
 reboot
 ```
@@ -83,6 +83,13 @@ a user service → Chromium opens fullscreen in roughly 15-20 seconds.
   launcher sets it; dev sessions don't).
 - `mpris-proxy` bridges a Bluetooth-connected phone into MPRIS so FieldRig can
   show and control phone media.
+- **Hidden mouse cursor:** cage draws a pointer at screen centre (a touchscreen
+  registers as a pointer device, so it never moves off). Step 5 generates a
+  transparent Xcursor theme in `~/.local/share/icons/fieldrig-hidden` and
+  exports `XCURSOR_THEME` for cage, so the compositor pointer is invisible;
+  CSS `cursor: none` covers the page itself. To apply on an existing install,
+  re-run `./05-autostart.sh` and reboot (remount read-write first if sealed:
+  `fieldrig-rw`).
 - **gpiod caveat:** Pi OS Bookworm ships libgpiod 1.6.x but `gpiod>=2.1` needs
   libgpiod 2.x. If pip fails on gpiod, step 4 will install the rest of the Pi
   extras without it — GPIO ignition sense degrades gracefully.
