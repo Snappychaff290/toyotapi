@@ -3,20 +3,17 @@
    #006618 tertiary, #003b00 borders, #001a00 raised surfaces. */
 
 :root {
-  /* Phosphor hue + saturation. The theme picker on the SYSTEM screen
-     overrides these two at runtime; every shade below derives from them,
-     so changing them reskins the whole UI. Defaults to the classic green. */
-  --h: 135;
-  --s: 100%;
-
-  --bright:    hsl(var(--h) var(--s) 50%);
-  --mid:       hsl(var(--h) var(--s) 42%);
-  --dim:       hsl(var(--h) var(--s) 28%);
-  --dimmer:    hsl(var(--h) var(--s) 20%);
-  --border:    hsl(var(--h) var(--s) 12%);
-  --border-hi: hsl(var(--h) var(--s) 25%);
-  --raised:    hsl(var(--h) var(--s) 6%);
-  --glow:      hsl(var(--h) var(--s) 55% / 0.45);
+  /* Defaults below; the theme picker (SYSTEM screen) overrides every shade
+     live from JS by recomputing them from a hue + saturation (see app.js).
+     Concrete values so the default green renders before the script runs. */
+  --bright:    hsl(135, 100%, 50%);
+  --mid:       hsl(135, 100%, 42%);
+  --dim:       hsl(135, 100%, 28%);
+  --dimmer:    hsl(135, 100%, 20%);
+  --border:    hsl(135, 100%, 12%);
+  --border-hi: hsl(135, 100%, 25%);
+  --raised:    hsl(135, 100%, 6%);
+  --glow:      hsla(135, 100%, 55%, 0.45);
   --bg: #0d0d0d;
 }
 
@@ -96,21 +93,25 @@ body::after {
 
 #frame {
   position: relative;
+  /* z-index lifts the frame (and its border labels) above the nav bar, which
+     comes later in the DOM, so the bottom label is never painted over. */
+  z-index: 1;
   flex: 1 1 auto;
   /* Top/bottom margins leave room for the border labels (which sit at
-     top/bottom: -0.75em) to clear the status bar and nav bar. */
-  margin: 14px 14px 14px;
+     top/bottom: -0.6em) to clear the status bar and nav bar. */
+  margin: 18px 14px 18px;
   border: 1px solid var(--border-hi);
   border-radius: 10px;
-  padding: 10px 18px 10px;
+  padding: 8px 18px 8px;
 }
 
 .frame-title {
   position: absolute;
-  top: -0.75em;
+  top: -0.6em;
   left: 18px;
   background: var(--bg);
   padding: 0 10px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--bright);
   text-shadow: 0 0 6px var(--glow);
@@ -118,10 +119,11 @@ body::after {
 
 .frame-sub {
   position: absolute;
-  bottom: -0.75em;
+  bottom: -0.6em;
   right: 18px;
   background: var(--bg);
   padding: 0 10px;
+  font-size: 13px;
   color: var(--dim);
 }
 
@@ -270,6 +272,35 @@ button.current {
 .swatch.current {
   background: var(--sw);
   color: var(--bg);
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.slider-row label { width: 42px; color: var(--mid); font-weight: 700; }
+.slider-row .val { width: 52px; color: var(--dim); text-align: right; }
+
+input[type="range"] {
+  flex: 1 1 auto;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bright);
+  border: 2px solid var(--bg);
 }
 
 /* --- nav rail --- */

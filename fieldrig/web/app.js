@@ -37,15 +37,39 @@ function send(cmd, extra = {}) {
 
 /* ---------- theme ---------- */
 
+// Lightness of each shade; the whole palette is one hue+saturation at these.
+const SHADE_L = {
+  "--bright": 50, "--mid": 42, "--dim": 28, "--dimmer": 20,
+  "--border": 12, "--border-hi": 25, "--raised": 6,
+};
+let theme = { h: 135, s: 100 };
+
 function applyTheme(h, s) {
+  h = Math.round(Number(h));
+  s = Math.round(parseFloat(s));            // accepts 100 or "100%"
+  if (!Number.isFinite(h) || !Number.isFinite(s)) return;
+  theme = { h, s };
+
   const root = document.documentElement;
-  root.style.setProperty("--h", String(h));
-  root.style.setProperty("--s", s);
-  // Cache for instant re-apply on the next page load (e.g. post-update reload).
-  try { localStorage.setItem("fr-theme", JSON.stringify({ h, s })); } catch (e) {}
+  for (const v in SHADE_L)
+    root.style.setProperty(v, `hsl(${h}, ${s}%, ${SHADE_L[v]}%)`);
+  root.style.setProperty("--glow", `hsla(${h}, ${s}%, 55%, 0.45)`);
+
+  // Cache for instant re-apply on the next load (e.g. post-update reload).
+  try { localStorage.setItem("fr-theme", JSON.stringify(theme)); } catch (e) {}
+
+  // Keep the controls in sync (slider drag, swatch tap, or remote update).
+  if ($("#hue")) $("#hue").value = h;
+  if ($("#sat")) $("#sat").value = s;
+  if ($("#hue-val")) $("#hue-val").textContent = `${h}°`;
+  if ($("#sat-val")) $("#sat-val").textContent = `${s}%`;
   $$("#swatches .swatch").forEach((b) =>
     b.classList.toggle("current",
-      b.dataset.h === String(h) && b.dataset.s === s));
+      Number(b.dataset.h) === h && parseInt(b.dataset.s, 10) === s));
+}
+
+function persistTheme() {
+  send("set_theme", { h: theme.h, s: `${theme.s}%` });
 }
 
 /* ---------- screen switching ---------- */
@@ -69,7 +93,7 @@ document.addEventListener("click", (e) => {
   if (button.dataset.screen) show(button.dataset.screen);
   else if (button.dataset.h !== undefined) {
     applyTheme(button.dataset.h, button.dataset.s);     // instant, local
-    send("set_theme", { h: Number(button.dataset.h), s: button.dataset.s });
+    persistTheme();
   }
   else if (button.dataset.cmd) send(button.dataset.cmd);
   else if (button.dataset.bt) {
@@ -235,6 +259,14 @@ function connect() {
 }
 
 /* ---------- boot ---------- */
+
+// Sliders: recolor live while dragging, persist once on release.
+["hue", "sat"].forEach((id) => {
+  const el = $(`#${id}`);
+  if (!el) return;
+  el.addEventListener("input", () => applyTheme($("#hue").value, $("#sat").value));
+  el.addEventListener("change", persistTheme);
+});
 
 // Apply the cached theme immediately so there's no green flash before the
 // server's saved theme arrives.
