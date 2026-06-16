@@ -35,9 +35,37 @@ html, body {
   cursor: none;
 }
 
-body {
+#viewport {
   display: flex;
   flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Screen rotation for a pull-out / swivel mount. Cage (the kiosk compositor)
+   can't live-rotate the output, so we rotate the whole UI in CSS instead. The
+   browser hit-tests through the transform, so touch lands correctly with no
+   input remapping. vw/vh stay tied to the physical panel, so width/height swap
+   at 90°/270°. The scanline overlay (body::after) is left unrotated on purpose
+   so the CRT lines always run with the panel, not the picture. */
+body.rot-90 #viewport,
+body.rot-270 #viewport { width: 100vh; height: 100vw; }
+
+body.rot-90 #viewport {
+  position: absolute;
+  top: 0;
+  left: 100vw;
+  transform-origin: top left;
+  transform: rotate(90deg);
+}
+body.rot-180 #viewport { transform: rotate(180deg); }
+body.rot-270 #viewport {
+  position: absolute;
+  top: 100vh;
+  left: 0;
+  transform-origin: top left;
+  transform: rotate(270deg);
 }
 
 /* CRT scanlines + vignette, the part a real terminal can't do nicely */
@@ -282,6 +310,18 @@ button.current {
   background: var(--sw);
   color: var(--bg);
 }
+
+/* --- orientation buttons (SYSTEM screen) --- */
+
+.orient {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.rotbtn { flex: 1 1 0; min-width: 150px; }
+.rotbtn.current { background: var(--border); border-color: var(--bright); }
 
 .slider-row {
   display: flex;

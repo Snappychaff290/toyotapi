@@ -81,6 +81,37 @@ def _sanitize_theme(h: Any, s: Any) -> dict:
     return {"h": hue, "s": f"{sat}%"}
 
 
+def _load_rotation() -> int:
+    """Saved screen rotation in degrees (0/90/180/270); 0 if unset/garbage."""
+    try:
+        deg = int(json.loads(SETTINGS_FILE.read_text()).get("rotation", 0))
+        return deg if deg in (0, 90, 180, 270) else 0
+    except Exception:
+        return 0
+
+
+async def _save_setting(key: str, value: Any) -> None:
+    """Merge one key into the persisted settings file. Briefly remounts the
+    root read-write if it's sealed (the car's normal state), then re-seals it."""
+    was_readonly = await _root_is_readonly()
+    if was_readonly:
+        await _run("sudo", "-n", FS_HELPER, "rw")
+    try:
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            data = json.loads(SETTINGS_FILE.read_text())
+        except Exception:
+            data = {}
+        data[key] = value
+        SETTINGS_FILE.write_text(json.dumps(data))
+    except OSError:
+        log.warning("could not persist %s to %s", key, SETTINGS_FILE)
+    finally:
+        if was_readonly:
+            await _run("sync")
+            await _run("sudo", "-n", FS_HELPER, "ro")
+
+
 class Hub:
     """Fans every bus event out to all connected websocket clients."""
 
@@ -178,32 +209,26 @@ def create_app() -> FastAPI:
         return True
 
     async def set_theme(m: dict) -> None:
-        """Persist the chosen phosphor colour and broadcast it to all clients.
-        Briefly remounts read-write if the root is sealed (same as updates)."""
+        """Persist the chosen phosphor colour and broadcast it to all clients."""
         try:
             theme = _sanitize_theme(m.get("h"), m.get("s"))
         except (TypeError, ValueError):
             return
-
-        was_readonly = await _root_is_readonly()
-        if was_readonly:
-            await _run("sudo", "-n", FS_HELPER, "rw")
-        try:
-            SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                data = json.loads(SETTINGS_FILE.read_text())
-            except Exception:
-                data = {}
-            data["theme"] = theme
-            SETTINGS_FILE.write_text(json.dumps(data))
-        except OSError:
-            log.warning("could not persist theme to %s", SETTINGS_FILE)
-        finally:
-            if was_readonly:
-                await _run("sync")
-                await _run("sudo", "-n", FS_HELPER, "ro")
-
+        await _save_setting("theme", theme)
         bus.emit("theme_update", theme)
+
+    async def set_rotation(m: dict) -> None:
+        """Persist the screen rotation (0/90/180/270) and broadcast it. The page
+        rotates its own UI in CSS — see web/style.css — so no system display
+        reconfiguration is needed and touch stays aligned with the picture."""
+        try:
+            deg = int(m.get("deg")) % 360
+        except (TypeError, ValueError):
+            return
+        if deg not in (0, 90, 180, 270):
+            return
+        await _save_setting("rotation", deg)
+        bus.emit("rotation_update", {"deg": deg})
 
     async def do_update(_m: dict) -> None:
         """Pull the latest code and restart the service.
@@ -255,6 +280,7 @@ def create_app() -> FastAPI:
         "bt_remove": lambda m: audio.bt_remove(m["mac"]),
         "app_update": do_update,
         "set_theme": set_theme,
+        "set_rotation": set_rotation,
     }
 
     @app.get("/api/state")
@@ -262,6 +288,7 @@ def create_app() -> FastAPI:
         return {
             "version": __version__,
             "theme": _load_theme(),
+            "rotation": _load_rotation(),
             "audio": await audio.ui_data(),
             "statuses": await manager.statuses(),
         }

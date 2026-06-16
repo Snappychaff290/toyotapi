@@ -8,6 +8,10 @@
 </head>
 <body>
 
+<!-- Everything rotatable lives in #viewport; #viewport is what the SYSTEM
+     screen's orientation control transforms (see style.css / app.js). -->
+<div id="viewport">
+
 <header id="statusbar">
   <div class="chips">
     <span class="chip" id="chip-gps">GPS</span>
@@ -187,6 +191,18 @@
       <div class="dim">PULL THE LATEST CODE FROM GIT AND RESTART. NEEDS INTERNET.</div>
       <div id="update-status" class="big">READY</div>
     </div>
+    <div class="panel">
+      <span class="ptitle">⟲ DISPLAY ORIENTATION</span>
+      <span class="psub">SWIVEL / PORTRAIT</span>
+      <div class="dim">ROTATE THE SCREEN FOR A PULLED-OUT OR SWIVELLED MOUNT.
+        TOUCH FOLLOWS THE PICTURE.</div>
+      <div class="orient" id="orient">
+        <button class="rotbtn" data-rot="0">↑ 0° LANDSCAPE</button>
+        <button class="rotbtn" data-rot="90">→ 90° PORTRAIT</button>
+        <button class="rotbtn" data-rot="180">↓ 180° INVERTED</button>
+        <button class="rotbtn" data-rot="270">← 270° PORTRAIT</button>
+      </div>
+    </div>
     <div class="panel grow">
       <span class="ptitle">▞ DISPLAY COLOR</span>
       <span class="psub">PHOSPHOR HUE</span>
@@ -211,6 +227,7 @@
       </div>
     </div>
     <div class="controls">
+      <button data-rot-step="90">⟲ ROTATE 90°</button>
       <button data-cmd="app_update" class="accent">⟳ UPDATE</button>
     </div>
   </section>
@@ -226,6 +243,8 @@
   <button data-screen="camera">◉ CAM</button>
   <button data-screen="system">⚙ SYS</button>
 </nav>
+
+</div><!-- #viewport -->
 
 <script src="app.js"></script>
 </body>

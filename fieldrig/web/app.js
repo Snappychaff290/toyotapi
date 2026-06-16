@@ -78,6 +78,32 @@ function persistTheme() {
   send("set_theme", { h: theme.h, s: `${theme.s}%` });
 }
 
+/* ---------- screen rotation ---------- */
+
+// CSS rotates #viewport (see style.css); the browser keeps touch correct.
+let rotation = 0;
+const ROT_STEPS = [0, 90, 180, 270];
+
+function applyRotation(deg) {
+  deg = ((Math.round(Number(deg) / 90) * 90) % 360 + 360) % 360;
+  if (!Number.isFinite(deg)) return;
+  rotation = deg;
+
+  const body = document.body;
+  ROT_STEPS.forEach((d) => body.classList.toggle(`rot-${d}`, d === deg));
+
+  // Cache for instant re-apply on the next load (e.g. post-update reload), so
+  // the UI doesn't flash in the old orientation before the server's value lands.
+  try { localStorage.setItem("fr-rotation", String(deg)); } catch (e) {}
+
+  $$("#orient .rotbtn").forEach((b) =>
+    b.classList.toggle("current", Number(b.dataset.rot) === deg));
+}
+
+function persistRotation() {
+  send("set_rotation", { deg: rotation });
+}
+
 /* ---------- screen switching ---------- */
 
 function show(name) {
@@ -100,6 +126,14 @@ document.addEventListener("click", (e) => {
   else if (button.dataset.h !== undefined) {
     applyTheme(button.dataset.h, button.dataset.s);     // instant, local
     persistTheme();
+  }
+  else if (button.dataset.rot !== undefined) {
+    applyRotation(button.dataset.rot);                  // instant, local
+    persistRotation();
+  }
+  else if (button.dataset.rotStep !== undefined) {
+    applyRotation(rotation + Number(button.dataset.rotStep));
+    persistRotation();
   }
   else if (button.dataset.cmd) send(button.dataset.cmd);
   else if (button.dataset.bt) {
@@ -252,6 +286,7 @@ function connect() {
     else if (event === "system_update") onSystem(data);
     else if (event === "update_status") onUpdate(data);
     else if (event === "theme_update") applyTheme(data.h, data.s);
+    else if (event === "rotation_update") applyRotation(data.deg);
     if (!NOISY.has(event)) feed(event, data);
   };
   ws.onopen = () => {
@@ -281,6 +316,12 @@ try {
   if (t) applyTheme(t.h, t.s);
 } catch (e) {}
 
+// Same for the saved orientation.
+try {
+  const r = localStorage.getItem("fr-rotation");
+  if (r !== null) applyRotation(r);
+} catch (e) {}
+
 fetch("/api/state")
   .then((r) => r.json())
   .then((snapshot) => {
@@ -288,6 +329,7 @@ fetch("/api/state")
     const sv = $("#sys-version");
     if (sv) sv.textContent = `v${snapshot.version}`;
     if (snapshot.theme) applyTheme(snapshot.theme.h, snapshot.theme.s);
+    if (snapshot.rotation != null) applyRotation(snapshot.rotation);
     onAudio(snapshot.audio);
   })
   .catch(() => {});
