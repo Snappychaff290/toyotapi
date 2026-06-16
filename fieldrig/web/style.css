@@ -127,7 +127,15 @@ body::after {
   color: var(--dim);
 }
 
-.screen { display: none; height: 100%; flex-direction: column; overflow: hidden; }
+.screen {
+  display: none;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  /* Top/bottom inset so the first panel's title and last panel's sub-label
+     (which sit above/below their panel borders) aren't clipped by overflow. */
+  padding: 14px 0 12px;
+}
 .screen.active { display: flex; }
 
 /* --- panels --- */
@@ -136,8 +144,8 @@ body::after {
   position: relative;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 18px 14px 12px;
-  margin-bottom: 16px;
+  padding: 12px 14px 10px;
+  margin-bottom: 10px;
 }
 
 .ptitle {
@@ -168,7 +176,7 @@ body::after {
 /* --- now playing --- */
 
 .np-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   text-shadow: 0 0 8px var(--glow);
   white-space: nowrap;
@@ -186,9 +194,9 @@ body::after {
 
 .waveform {
   display: block;
-  margin: 10px auto 0;
+  margin: 8px auto 0;
   width: min(92%, 800px);
-  height: 56px;
+  height: 44px;
 }
 
 /* --- gauges --- */
@@ -196,7 +204,7 @@ body::after {
 .gauge { text-align: center; }
 
 .gauge-val {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 700;
   text-shadow: 0 0 8px var(--glow);
 }

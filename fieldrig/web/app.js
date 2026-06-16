@@ -43,6 +43,10 @@ const SHADE_L = {
   "--border": 12, "--border-hi": 25, "--raised": 6,
 };
 let theme = { h: 135, s: 100 };
+// Waveform gradient colours, kept in sync with the theme (canvas can't read
+// CSS variables, so we compute them here).
+let waveLo = "hsl(135, 100%, 28%)";
+let waveHi = "hsl(135, 100%, 50%)";
 
 function applyTheme(h, s) {
   h = Math.round(Number(h));
@@ -54,6 +58,8 @@ function applyTheme(h, s) {
   for (const v in SHADE_L)
     root.style.setProperty(v, `hsl(${h}, ${s}%, ${SHADE_L[v]}%)`);
   root.style.setProperty("--glow", `hsla(${h}, ${s}%, 55%, 0.45)`);
+  waveLo = `hsl(${h}, ${s}%, 28%)`;
+  waveHi = `hsl(${h}, ${s}%, 50%)`;
 
   // Cache for instant re-apply on the next load (e.g. post-update reload).
   try { localStorage.setItem("fr-theme", JSON.stringify(theme)); } catch (e) {}
@@ -168,8 +174,8 @@ function onWaveform(levels) {
     ctx.clearRect(0, 0, w, h);
     const slot = w / levels.length;
     const gradient = ctx.createLinearGradient(0, h, 0, 0);
-    gradient.addColorStop(0, "#008f25");
-    gradient.addColorStop(1, "#00ff41");
+    gradient.addColorStop(0, waveLo);
+    gradient.addColorStop(1, waveHi);
     ctx.fillStyle = gradient;
     levels.forEach((level, i) => {
       const barH = Math.max(2, level * h);
