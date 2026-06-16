@@ -1,10 +1,9 @@
 [Unit]
 Description=FieldRig vehicle terminal server
-After=pipewire.service bluetooth.target
+After=pipewire.service
 
 [Service]
 ExecStart=%h/.local/share/fieldrig/venv/bin/python -m fieldrig --host 127.0.0.1 --port 8000
-# In the car the server powers the system off when ignition cuts.
 Environment=FIELDRIG_ENABLE_SHUTDOWN=1
 Restart=on-failure
 RestartSec=3

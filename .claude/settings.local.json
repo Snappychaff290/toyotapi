@@ -15,7 +15,8 @@
       "Read(//home/snappy/.local/state/fieldrig/logs/**)",
       "Bash(echo \"final exit: $?\")",
       "Bash(echo \"all exit: $?\")",
-      "Bash(node --check fieldrig/web/app.js)"
+      "Bash(node --check fieldrig/web/app.js)",
+      "Bash(chmod +x *)"
     ]
   }
 }
