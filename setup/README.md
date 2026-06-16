@@ -83,6 +83,13 @@ a user service → Chromium opens fullscreen in roughly 15-20 seconds.
   launcher sets it; dev sessions don't).
 - `mpris-proxy` bridges a Bluetooth-connected phone into MPRIS so FieldRig can
   show and control phone media.
+- **Bluetooth pairing survives the read-only seal.** BlueZ stores pairing keys
+  in `/var/lib/bluetooth`, which is on the sealed root. PAIR MODE briefly
+  remounts read-write (same helper as the UPDATE button), lets the key +
+  auto-trust land on disk, then re-seals — so you pair a phone once and it
+  reconnects every drive without re-pairing. Only pairing needs the write;
+  reconnects are read-only. Forgetting a device (REMOVE) is wrapped in the same
+  brief write window, so it sticks too.
 - **Hidden mouse cursor:** cage draws a pointer at screen centre (a touchscreen
   registers as a pointer device, so it never moves off). Step 5 generates a
   transparent Xcursor theme in `~/.local/share/icons/fieldrig-hidden` and

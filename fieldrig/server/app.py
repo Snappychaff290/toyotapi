@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
+from ..config import BT_DISCOVERABLE_SECONDS
 from ..core import EventBus, ModuleManager
 from ..core.hardware import HardwareWatcher
 from ..core.power import PowerMonitor
@@ -303,6 +304,65 @@ def create_app() -> FastAPI:
             if code != 0:
                 emit("manual", "UPDATED — RESTART REQUIRED")
 
+    # --- Bluetooth pairing needs a writable /var/lib/bluetooth ------------
+    # BlueZ persists pairing keys (and the auto-trust flag) under
+    # /var/lib/bluetooth, which lives on the sealed read-only root. Without a
+    # write window a freshly paired phone is forgotten on the next power-cycle.
+    # So PAIR MODE briefly remounts read-write, lets the key + auto-trust land
+    # on disk during the discoverable window, then re-seals -- the same trick
+    # the UPDATE button uses. Reconnecting on later drives only *reads* the
+    # key, which is fine on a read-only root.
+    pairing = {"we_unsealed": False, "reseal": None}
+
+    async def _reseal_after_pairing(delay: float) -> None:
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            raise
+        await _run("sync")
+        await _run("sudo", "-n", FS_HELPER, "ro")
+        pairing["we_unsealed"] = False
+        log.info("re-sealed root after bluetooth pairing window")
+
+    async def bt_pairing_mode() -> None:
+        # Cancel any pending re-seal; we're (re)opening the window.
+        task = pairing["reseal"]
+        if task is not None and not task.done():
+            task.cancel()
+        if await _root_is_readonly():
+            await _run("sudo", "-n", FS_HELPER, "rw")
+            pairing["we_unsealed"] = True
+        await audio.bt_pairing_mode()
+        # Re-seal a bit after the discoverable window closes, covering the
+        # pairing key plus the auto-trust write that follows a successful pair.
+        # Only if *we* unsealed -- never re-seal a deliberately writable box.
+        if pairing["we_unsealed"]:
+            pairing["reseal"] = asyncio.create_task(
+                _reseal_after_pairing(BT_DISCOVERABLE_SECONDS + 10))
+
+    def _flush_on_paired(event: str, data: Any) -> None:
+        # Flush the key to disk the instant a phone pairs, so even an immediate
+        # power-off keeps it; the window stays open for the auto-trust write.
+        asyncio.ensure_future(_run("sync"))
+
+    bus.subscribe("bluetooth_paired", _flush_on_paired)
+
+    async def bt_remove(mac: str) -> None:
+        # Forgetting a device deletes it from /var/lib/bluetooth -- a write to
+        # the sealed root -- so do it inside a brief read-write window, then
+        # re-seal. Unlike pairing this is a one-shot, so we seal right back.
+        # If a pairing window is already open we won't have unsealed here, so
+        # we leave that window (and its scheduled re-seal) untouched.
+        was_ro = await _root_is_readonly()
+        if was_ro:
+            await _run("sudo", "-n", FS_HELPER, "rw")
+        try:
+            await audio.bt_remove(mac)
+        finally:
+            if was_ro:
+                await _run("sync")
+                await _run("sudo", "-n", FS_HELPER, "ro")
+
     # Commands the page may send over /ws. Each returns a coroutine.
     commands = {
         "play_pause": lambda m: audio.play_pause(),
@@ -311,11 +371,11 @@ def create_app() -> FastAPI:
         "volume_up": lambda m: audio.volume_up(),
         "volume_down": lambda m: audio.volume_down(),
         "toggle_mute": lambda m: audio.toggle_mute(),
-        "bt_pairing_mode": lambda m: audio.bt_pairing_mode(),
+        "bt_pairing_mode": lambda m: bt_pairing_mode(),
         "bt_refresh": lambda m: audio.bt_refresh(),
         "bt_connect": lambda m: audio.bt_connect(m["mac"]),
         "bt_disconnect": lambda m: audio.bt_disconnect(m["mac"]),
-        "bt_remove": lambda m: audio.bt_remove(m["mac"]),
+        "bt_remove": lambda m: bt_remove(m["mac"]),
         "obd_refresh_dtc": lambda m: obd.refresh_dtcs(),
         "obd_clear_dtc": lambda m: obd.clear_dtcs(),
         "app_update": do_update,
