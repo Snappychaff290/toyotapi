@@ -17,10 +17,21 @@ install -Dm755 files/fieldrig-launch.sh "$HOME/.local/bin/fieldrig-launch"
 echo "==> Generating transparent cursor theme (hides the kiosk pointer)"
 # cage draws its own mouse pointer at screen centre (a touchscreen counts as a
 # pointer device, so it never moves away). CSS cursor:none only hides it over
-# the page; pointing XCURSOR_THEME at a transparent theme hides the
-# compositor's pointer too. The theme lives in home so it survives the
-# read-only seal.
-python3 files/make-blank-cursor.py "$HOME/.local/share/icons/fieldrig-hidden"
+# the page; the compositor pointer needs a transparent cursor theme. We cover
+# two cases because cage versions differ: (1) it honours XCURSOR_THEME (set in
+# .bash_profile below); (2) it asks wlroots for the "default" theme and ignores
+# the env -- so we also make "default" inherit the transparent theme. Both are
+# installed in the two icon search paths. Lives in home, survives the seal.
+for base in "$HOME/.local/share/icons" "$HOME/.icons"; do
+    python3 files/make-blank-cursor.py "$base/fieldrig-hidden"
+    mkdir -p "$base/default"
+    cat > "$base/default/index.theme" <<'THEME'
+[Icon Theme]
+Name=Default
+Comment=FieldRig: redirect the default cursor to the transparent theme
+Inherits=fieldrig-hidden
+THEME
+done
 
 echo "==> Adding cage kiosk to ~/.bash_profile (tty1 autologin hook)"
 PROFILE="$HOME/.bash_profile"

@@ -129,8 +129,10 @@ class AudioModule(Module):
         # A phone streaming to the Pi shows up as a bluez MPRIS player
         # (via mpris-proxy); a connected phone with no local player
         # means the same thing without metadata.
-        if (playing and "bluez" in playing["player"].lower()) or \
-                (connected is not None and playing is None):
+        # A connected phone means we're on Bluetooth, with or without metadata;
+        # also catch a bluez-named MPRIS player if the device scan is stale.
+        if connected is not None or \
+                (playing and "bluez" in (playing.get("player") or "").lower()):
             source = "BLUETOOTH"
         else:
             source = "PI AUX"

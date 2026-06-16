@@ -110,9 +110,20 @@ class MPRIS:
         try:
             intro = await self._bus.introspect(name, OBJECT_PATH)
             obj = self._bus.get_proxy_object(name, OBJECT_PATH, intro)
-            self._player = obj.get_interface(PLAYER_IFACE)
+            # Properties is the read + signal path and is always present.
+            # Bind it first so metadata works even if the Player iface below
+            # can't be created. We read state through Properties, not through
+            # the Player iface, precisely so a quirky player can't break it.
             self._props = obj.get_interface(PROPS_IFACE)
             self._props.on_properties_changed(self._on_props_changed)
+            # The Player iface (control: play/pause/next) may be under-declared
+            # in a bluez/mpris-proxy player's introspection -- tolerate it.
+            try:
+                self._player = obj.get_interface(PLAYER_IFACE)
+            except Exception:
+                self._player = None
+                log.info("player %s exposes no Player iface; controls disabled",
+                         name.removeprefix(PLAYER_PREFIX))
             self._player_name = name
             log.info("bound MPRIS player %s", name.removeprefix(PLAYER_PREFIX))
         except Exception:
@@ -144,28 +155,41 @@ class MPRIS:
     # --- reads / controls -------------------------------------------------
 
     async def now_playing(self) -> dict[str, Any] | None:
-        """Live metadata + playback state of the bound player (no subprocess).
-        Returns None when nothing is bound."""
-        if self._player is None:
+        """Live metadata + playback state of the bound player. Returns None
+        when nothing is bound.
+
+        Read through org.freedesktop.DBus.Properties (GetAll/Get) rather than
+        dbus-fast's introspection-generated property getters: bluez/mpris-proxy
+        players often under-declare their properties in introspection, so the
+        generated getters can be missing even though the properties work at
+        runtime -- which silently emptied the now-playing panel. GetAll always
+        reflects what the player actually implements."""
+        if self._props is None:
             return None
         try:
-            meta_raw = await self._player.get_metadata()
-            status = await self._player.get_playback_status()
-            try:
-                position = await self._player.get_position()  # microseconds
-            except Exception:
-                position = None       # many BT players don't expose Position
+            raw = await self._props.call_get_all(PLAYER_IFACE)
         except Exception:
-            # Player likely vanished between the signal and this read.
+            # The player likely vanished between the signal and this read.
             self._unbind()
             return None
+        props = {k: _val(v) for k, v in (raw or {}).items()}
 
-        meta = {k: _val(v) for k, v in (meta_raw or {}).items()}
+        meta = {k: _val(v) for k, v in (props.get("Metadata") or {}).items()}
+        status = props.get("PlaybackStatus") or "Stopped"
+        # Position is often absent from GetAll; ask for it on its own and shrug
+        # if the player doesn't expose it (many BT players don't).
+        position = props.get("Position")
+        if position is None:
+            try:
+                position = _val(await self._props.call_get(PLAYER_IFACE, "Position"))
+            except Exception:
+                position = None
+
         artist = meta.get("xesam:artist")
         if isinstance(artist, list):
             artist = ", ".join(artist)
         return {
-            "player": self._player_name.removeprefix(PLAYER_PREFIX),
+            "player": (self._player_name or "").removeprefix(PLAYER_PREFIX),
             "title": meta.get("xesam:title") or "",
             "artist": artist or "",
             "album": meta.get("xesam:album") or "",
