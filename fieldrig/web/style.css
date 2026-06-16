@@ -21,6 +21,7 @@
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  cursor: none;            /* touch kiosk — never show a mouse pointer */
 }
 
 html, body {
@@ -31,7 +32,7 @@ html, body {
   color: var(--bright);
   font-family: "JetBrains Mono", "JetBrainsMono Nerd Font", monospace;
   font-size: 16px;
-  cursor: default;
+  cursor: none;
 }
 
 body {

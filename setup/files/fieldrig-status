@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Report whether the FieldRig filesystem is sealed read-only and healthy.
+# Run after a clean reboot (not right after fieldrig-rw) to check the car state.
+
+is_ro() { findmnt -no OPTIONS "$1" 2>/dev/null | tr ',' '\n' | grep -qx ro; }
+
+echo "== FieldRig read-only status =="
+
+is_ro /              && echo "root mounted read-only now : YES" \
+                     || echo "root mounted read-only now : NO  <-- not sealed"
+is_ro /boot/firmware && echo "boot mounted read-only now : YES" \
+                     || echo "boot mounted read-only now : no"
+
+grep -qE '^[^#]+[[:space:]]/[[:space:]].*\bro\b' /etc/fstab \
+    && echo "fstab boots read-only      : YES" \
+    || echo "fstab boots read-only      : NO  <-- run sudo fieldrig-seal"
+
+echo
+echo "volatile tmpfs mounts (writes land in RAM, lost on power-off):"
+findmnt -rno TARGET,FSTYPE /tmp /var/tmp /var/log 2>/dev/null | sed 's/^/  /'
+
+echo
+printf "write test to / ............ "
+if touch /.fieldrig-wtest 2>/dev/null; then
+    rm -f /.fieldrig-wtest; echo "WRITABLE  <-- not sealed!"
+else echo "blocked (read-only) OK"; fi
+
+printf "write test to home ......... "
+if touch "$HOME/.fieldrig-wtest" 2>/dev/null; then
+    rm -f "$HOME/.fieldrig-wtest"; echo "WRITABLE  <-- not sealed!"
+else echo "blocked (read-only) OK"; fi
+
+printf "server responding .......... "
+curl -fsS http://127.0.0.1:8000/api/state >/dev/null 2>&1 && echo "UP" || echo "DOWN"

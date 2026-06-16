@@ -21,7 +21,10 @@
       "Bash(awk ' *)",
       "Bash(tee sealed_fstab)",
       "Bash(awk '$1 !~ /^#/ && $2 == \"/\"' sealed_fstab)",
-      "Bash(bash -n /mnt/c/Projects/toyota-pi/setup/01-system.sh)"
+      "Bash(bash -n /mnt/c/Projects/toyota-pi/setup/01-system.sh)",
+      "Bash(bash -n setup/files/fieldrig-status)",
+      "Bash(bash -n setup/06-readonly.sh)",
+      "Bash(findmnt -no OPTIONS /)"
     ]
   }
 }

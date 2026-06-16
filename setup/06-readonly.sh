@@ -23,6 +23,7 @@ sudo install -Dm755 files/fieldrig-seal   /usr/local/sbin/fieldrig-seal
 sudo install -Dm755 files/fieldrig-unseal /usr/local/sbin/fieldrig-unseal
 sudo install -Dm755 files/fieldrig-rw     /usr/local/bin/fieldrig-rw
 sudo install -Dm755 files/fieldrig-ro     /usr/local/bin/fieldrig-ro
+sudo install -Dm755 files/fieldrig-status /usr/local/bin/fieldrig-status
 
 sed "s/%USER%/${USER_NAME}/" files/fieldrig.sudoers > /tmp/fieldrig.sudoers
 sudo install -Dm440 /tmp/fieldrig.sudoers /etc/sudoers.d/fieldrig
