@@ -16,6 +16,8 @@ from ..core.hardware import HardwareWatcher
 from ..core.power import PowerMonitor
 from ..logging_setup import get_module_logger, setup_logging
 from ..modules.audio import AudioModule
+from ..modules.camera import CameraModule
+from ..modules.obd import ObdModule
 from .screens import AudioScreen, BluetoothScreen, HomeScreen, PlaceholderScreen
 
 log = get_module_logger("boot")
@@ -53,6 +55,10 @@ class FieldRigApp(App):
         self.manager = ModuleManager(self.bus)
         self.audio = AudioModule(self.bus)
         self.manager.register(self.audio)
+        # OBD + camera run headless in the TUI (a debug console); their screens
+        # stay placeholders here -- the live UI for them is the web kiosk.
+        self.manager.register(ObdModule(self.bus))
+        self.manager.register(CameraModule(self.bus))
         self.hardware = HardwareWatcher(self.bus)
         self.power = PowerMonitor(self.bus)
         # Cache of the last audio_update so screens mounting later can

@@ -16,12 +16,16 @@ async def _check() -> int:
     from .core import EventBus, ModuleManager
     from .logging_setup import setup_logging
     from .modules.audio import AudioModule
+    from .modules.camera import CameraModule
+    from .modules.obd import ObdModule
 
     setup_logging()
     bus = EventBus()
     bus.attach_loop(asyncio.get_running_loop())
     manager = ModuleManager(bus)
     manager.register(AudioModule(bus))
+    manager.register(ObdModule(bus))
+    manager.register(CameraModule(bus))
 
     await manager.start_all()
     await asyncio.sleep(0.5)

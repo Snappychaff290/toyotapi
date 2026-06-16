@@ -34,11 +34,11 @@ usable mid-development.
 | 1 | Core foundation: OS, touch, autologin, auto-boot | ✅ `setup/` scripts |
 | 2 | Core app: Textual skeleton, dashboard, nav, event bus, module API | ✅ |
 | 3 | Audio: PipeWire, Bluetooth screen, waveform, media controls, channel manager | ✅ |
-| 4 | Vehicle data (OBD-II) | planned |
+| 4 | Vehicle data: OBD-II live gauges + trouble-code reader, auto-connect on plug-in | ✅ |
 | 5 | Navigation (GPSD + MBTiles) | planned |
 | 6 | Radio (RTL-SDR) | planned |
 | 7 | Mesh (Meshtastic) | planned |
-| 8 | Camera (UVC + OpenCV) | planned |
+| 8 | Camera: USB UVC capture -> live MJPEG feed, auto-detect on plug-in | ✅ |
 | 9 | Polish | planned |
 
 ## Architecture: looks like a TUI, isn't one
@@ -69,8 +69,13 @@ fieldrig/
 │                    management (bluetoothctl), MPRIS media control
 │                    (busctl), waveform analyzer (PyAudio w/ simulation
 │                    fallback), channel manager with auto-ducking
+├── modules/obd/     ELM327 OBD-II reader (python-OBD): live speed/RPM/fuel/
+│                    coolant/voltage PIDs + diagnostic trouble codes, auto-
+│                    connecting when the USB dongle is plugged in
+├── modules/camera/  USB UVC capture (OpenCV) in a background thread, restreamed
+│                    as MJPEG; auto-detects the capture card on hotplug
 ├── server/          FastAPI: websocket event bridge, command dispatch,
-│                    /api/state snapshot, camera endpoint (Phase 8)
+│                    /api/state snapshot, /camera.mjpg live MJPEG stream
 ├── web/             the kiosk page: HTML/CSS/JS phosphor console
 └── ui/              Textual debug console (same core, run over SSH)
 setup/               Phase 1 install scripts for the Pi (see setup/README.md)
@@ -133,6 +138,12 @@ python3 -m venv .venv
   screen shows track info and prev/play/next actually drive the phone.
 - **System tools over pip deps**: PipeWire via `wpctl`, BlueZ via
   `bluetoothctl`, MPRIS via `busctl` — nothing to compile.
+- **Hotplug auto-activation**: the OBD and camera modules start at boot and
+  sit idle without their hardware. The pyudev watcher's `hardware_added`
+  event wakes their reconnect loops, so plugging in the ELM327 dongle or the
+  USB capture card brings the gauges / live feed up within a couple of
+  seconds — no restart, nothing to write to the sealed read-only card. Both
+  query/stream only (the one ECU write, CLEAR CODES, never touches the disk).
 - **Power**: GPIO 17 watches switched 12V; on ignition cut, modules get
   `power_loss` to save state, then a graceful shutdown (only when
   `FIELDRIG_ENABLE_SHUTDOWN=1`, which the in-car launcher sets).

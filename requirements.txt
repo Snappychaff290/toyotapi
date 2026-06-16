@@ -3,6 +3,8 @@ textual>=1.0
 dbus-fast>=2.21    # event-driven MPRIS media control over D-Bus (pure Python)
 
 # Pi-only hardware extras -- install with: pip install -e ".[pi]"
-# pyaudio    (waveform capture; needs portaudio system package)
-# pyudev     (USB hotplug detection)
-# gpiod      (ignition 12V sense / graceful shutdown)
+# pyaudio                  (waveform capture; needs portaudio system package)
+# pyudev                   (USB hotplug detection)
+# gpiod                    (ignition 12V sense / graceful shutdown)
+# obd                      (ELM327 OBD-II reader; Phase 4)
+# opencv-python-headless   (UVC camera capture; Phase 8)

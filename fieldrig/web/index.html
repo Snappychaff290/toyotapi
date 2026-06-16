@@ -22,7 +22,7 @@
   </div>
   <div class="right">
     <span class="bright" id="src-ind">♪ AUX</span>
-    <span class="dim">⚡ --.-V</span>
+    <span class="dim" id="volt">⚡ --.-V</span>
     <span class="bright" id="clock">--:--</span>
   </div>
 </header>
@@ -147,13 +147,47 @@
       <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 5</div>
     </div>
   </section>
-  <section id="screen-obd" class="screen placeholder">
-    <div class="panel card">
-      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 4</span>
-      <div class="glyph">▣</div>
-      <div class="big">VEHICLE TELEMETRY — OFFLINE</div>
-      <div class="dim">OBD-II · FUEL RANGE · WARNINGS</div>
-      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 4</div>
+  <section id="screen-obd" class="screen">
+    <div class="row">
+      <div class="panel gauge">
+        <span class="ptitle">SPEED</span>
+        <div class="gauge-val" id="o-speed">---</div>
+        <div class="gauge-unit dim">MPH</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">RPM</span>
+        <div class="gauge-val" id="o-rpm">---</div>
+        <div class="gauge-unit dim">× 1000</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">FUEL</span>
+        <div class="gauge-val" id="o-fuel">---</div>
+        <div class="gauge-unit dim">% REMAINING</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">COOLANT</span>
+        <div class="gauge-val" id="o-temp">---</div>
+        <div class="gauge-unit dim">°F</div>
+      </div>
+      <div class="panel gauge">
+        <span class="ptitle">BATTERY</span>
+        <div class="gauge-val" id="o-volt">---</div>
+        <div class="gauge-unit dim">VOLTS</div>
+      </div>
+    </div>
+    <div class="panel">
+      <span class="ptitle">▣ LINK</span>
+      <div class="big" id="obd-link">SCANNING FOR ADAPTER…</div>
+      <div class="dim">ELM327 USB · PLUG IN THE DONGLE AND IT CONNECTS AUTOMATICALLY</div>
+    </div>
+    <div class="panel grow">
+      <span class="ptitle">⚠ TROUBLE CODES</span>
+      <span class="psub" id="dtc-status">—</span>
+      <ul id="dtc-list"></ul>
+    </div>
+    <div class="controls">
+      <button data-cmd="obd_refresh_dtc" class="accent">⟳ READ CODES</button>
+      <button data-cmd="obd_clear_dtc">✖ CLEAR CODES</button>
     </div>
   </section>
   <section id="screen-radio" class="screen placeholder">
@@ -175,13 +209,17 @@
     </div>
   </section>
   <section id="screen-camera" class="screen placeholder">
-    <div class="panel card">
-      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 8</span>
+    <!-- OFFLINE card and the live feed swap in JS on camera_update. -->
+    <div class="panel card" id="cam-offline">
+      <span class="ptitle">MODULE STATUS</span><span class="psub">UVC</span>
       <div class="glyph">◉</div>
       <div class="big">CAMERA — OFFLINE</div>
       <div class="dim">UVC CAPTURE · LIVE MJPEG FEED</div>
-      <div class="dimmer">HARDWARE + SOFTWARE ARRIVE IN PHASE 8</div>
-      <!-- Phase 8: <img class="feed" src="/camera.mjpg"> replaces this card -->
+      <div class="dimmer">PLUG IN THE USB CAPTURE CARD TO GO LIVE</div>
+    </div>
+    <div id="cam-live" class="cam-live hidden">
+      <img class="feed" id="cam-img" alt="camera feed">
+      <span class="cam-tag">◉ LIVE</span>
     </div>
   </section>
   <section id="screen-system" class="screen">

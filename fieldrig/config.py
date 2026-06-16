@@ -25,6 +25,25 @@ BT_DISCOVERABLE_SECONDS = 120   # pairing-mode window before auto-hiding
 VOLUME_STEP = 0.05
 MAX_VOLUME = 1.0
 
+# --- OBD-II (Phase 4) ---
+# The ELM327 is a USB serial adapter; python-OBD auto-scans the serial ports
+# when OBD_PORT is unset. Everything degrades to "offline" without the dongle.
+OBD_PORT = os.environ.get("FIELDRIG_OBD_PORT") or None   # None = autoscan serial
+OBD_BAUDRATE = int(os.environ["FIELDRIG_OBD_BAUD"]) if os.environ.get("FIELDRIG_OBD_BAUD") else None
+OBD_TIMEOUT = float(os.environ.get("FIELDRIG_OBD_TIMEOUT", "1.0"))
+OBD_POLL_SECONDS = 1.0          # live telemetry refresh while connected
+OBD_RECONNECT_SECONDS = 4.0     # rescan interval for the ELM327 while absent
+
+# --- Camera (Phase 8) ---
+# A USB UVC capture card shows up as /dev/videoN; OpenCV grabs frames and the
+# server restreams them as MJPEG. Autoscans /dev/video* when device is unset.
+CAMERA_DEVICE = os.environ.get("FIELDRIG_CAMERA_DEVICE")  # None = autoscan
+CAMERA_WIDTH = int(os.environ.get("FIELDRIG_CAMERA_WIDTH", "1280"))
+CAMERA_HEIGHT = int(os.environ.get("FIELDRIG_CAMERA_HEIGHT", "720"))
+CAMERA_FPS = int(os.environ.get("FIELDRIG_CAMERA_FPS", "20"))
+CAMERA_JPEG_QUALITY = int(os.environ.get("FIELDRIG_CAMERA_JPEG_QUALITY", "70"))
+CAMERA_RECONNECT_SECONDS = 3.0  # rescan interval for the capture card while absent
+
 # --- Power monitor ---
 # BCM pin wired to the ignition-switched 12V sense divider.
 IGNITION_GPIO_PIN = int(os.environ.get("FIELDRIG_IGNITION_PIN", "17"))

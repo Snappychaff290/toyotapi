@@ -20,7 +20,7 @@ from typing import Any
 REPO_DIR = Path(__file__).resolve().parents[2]
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
@@ -30,6 +30,8 @@ from ..core.power import PowerMonitor
 from ..core.sysinfo import sysinfo_task
 from ..logging_setup import get_module_logger, setup_logging
 from ..modules.audio import AudioModule
+from ..modules.camera import CameraModule
+from ..modules.obd import ObdModule
 
 log = get_module_logger("server")
 
@@ -173,7 +175,11 @@ def create_app() -> FastAPI:
     bus = EventBus()
     manager = ModuleManager(bus)
     audio = AudioModule(bus)
+    obd = ObdModule(bus)
+    camera = CameraModule(bus)
     manager.register(audio)
+    manager.register(obd)
+    manager.register(camera)
     hardware = HardwareWatcher(bus)
     power = PowerMonitor(bus)
     hub = Hub()
@@ -310,6 +316,8 @@ def create_app() -> FastAPI:
         "bt_connect": lambda m: audio.bt_connect(m["mac"]),
         "bt_disconnect": lambda m: audio.bt_disconnect(m["mac"]),
         "bt_remove": lambda m: audio.bt_remove(m["mac"]),
+        "obd_refresh_dtc": lambda m: obd.refresh_dtcs(),
+        "obd_clear_dtc": lambda m: obd.clear_dtcs(),
         "app_update": do_update,
         "set_theme": set_theme,
         "set_rotation": set_rotation,
@@ -322,6 +330,8 @@ def create_app() -> FastAPI:
             "theme": _load_theme(),
             "rotation": _load_rotation(),
             "audio": await audio.ui_data(),
+            "obd": await obd.ui_data(),
+            "camera": await camera.ui_data(),
             "statuses": await manager.statuses(),
         }
 
@@ -348,10 +358,16 @@ def create_app() -> FastAPI:
             hub.clients.discard(ws)
 
     @app.get("/camera.mjpg")
-    async def camera() -> JSONResponse:
-        # Phase 8: OpenCV capture -> multipart/x-mixed-replace stream.
-        return JSONResponse({"error": "camera module arrives in Phase 8"},
-                            status_code=503)
+    async def camera_feed():
+        # Live UVC capture -> multipart/x-mixed-replace stream consumed by an
+        # <img> on the camera screen. 503 until the card is detected, so the
+        # page can show its OFFLINE card instead of a broken image.
+        if not camera.camera.connected:
+            return JSONResponse({"error": "no camera connected"}, status_code=503)
+        return StreamingResponse(
+            camera.mjpeg_stream(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
+        )
 
     app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
     return app

@@ -7,7 +7,8 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 const NOISY = new Set(["waveform_update", "audio_update", "system_update",
-                       "audio_channels_update", "bluetooth_update"]);
+                       "audio_channels_update", "bluetooth_update",
+                       "obd_update", "camera_update"]);
 const STATUS_ICONS = { Playing: "▶", Paused: "⏸", Stopped: "⏹" };
 const PROGRESS_WIDTH = 28;
 
@@ -340,6 +341,70 @@ function onBluetooth(data) {
   });
 }
 
+/* ---------- OBD-II telemetry ---------- */
+
+// Set a value on the home gauge and the OBD-screen gauge that share a metric.
+function setGauge(homeId, obdId, text) {
+  const a = $(homeId); if (a) a.textContent = text;
+  const b = $(obdId); if (b) b.textContent = text;
+}
+
+function onObd(state) {
+  if (!state) return;
+  const live = !!state.connected;
+  const fmt = (v, fn) => (Number.isFinite(v) ? fn(v) : "---");
+
+  setGauge("#g-speed", "#o-speed", fmt(state.speed_mph, (v) => String(Math.round(v))));
+  setGauge("#g-rpm", "#o-rpm", fmt(state.rpm, (v) => (v / 1000).toFixed(1)));
+  setGauge("#g-fuel", "#o-fuel", fmt(state.fuel_pct, (v) => String(Math.round(v))));
+  setGauge("#g-temp", "#o-temp", fmt(state.coolant_f, (v) => String(Math.round(v))));
+  const ov = $("#o-volt");
+  if (ov) ov.textContent = fmt(state.voltage, (v) => v.toFixed(1));
+
+  $("#volt").textContent = Number.isFinite(state.voltage)
+    ? `⚡ ${state.voltage.toFixed(1)}V` : "⚡ --.-V";
+  $("#chip-obd").classList.toggle("on", live);
+  const link = $("#obd-link");
+  if (link) link.textContent = live ? "▣ CONNECTED — LIVE TELEMETRY"
+                                    : "SCANNING FOR ADAPTER…";
+}
+
+function onDtc(data) {
+  const list = $("#dtc-list");
+  const status = $("#dtc-status");
+  if (status) status.textContent = data.message || "—";
+  if (!list) return;
+  list.innerHTML = "";
+  (data.codes || []).forEach((c) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="dtc-code">${c.code}</span> ${c.desc || ""}`;
+    list.appendChild(li);
+  });
+}
+
+/* ---------- camera ---------- */
+
+function onCamera(state) {
+  const section = $("#screen-camera");
+  const live = $("#cam-live");
+  const offline = $("#cam-offline");
+  const img = $("#cam-img");
+  if (!section || !live || !offline || !img) return;
+  if (state && state.connected) {
+    section.classList.remove("placeholder");
+    offline.classList.add("hidden");
+    live.classList.remove("hidden");
+    // Cache-bust so a reconnected card restarts the stream cleanly.
+    if (!img.src || !img.src.includes("/camera.mjpg"))
+      img.src = `/camera.mjpg?t=${Date.now()}`;
+  } else {
+    section.classList.add("placeholder");
+    live.classList.add("hidden");
+    offline.classList.remove("hidden");
+    img.removeAttribute("src");   // stop the in-flight MJPEG request
+  }
+}
+
 function onSystem(info) {
   const lines = [`CPU  ${meter(info.cpu ?? 0, 10)}  ${String(Math.round((info.cpu ?? 0) * 100)).padStart(3)}%`];
   if (info.ram_total) {
@@ -385,6 +450,9 @@ function connect() {
     if (event === "audio_update") onAudio(data);
     else if (event === "waveform_update") onWaveform(data);
     else if (event === "bluetooth_update") onBluetooth(data);
+    else if (event === "obd_update") onObd(data);
+    else if (event === "obd_dtc_update") onDtc(data);
+    else if (event === "camera_update") onCamera(data);
     else if (event === "system_update") onSystem(data);
     else if (event === "update_status") onUpdate(data);
     else if (event === "theme_update") applyTheme(data);
@@ -435,6 +503,12 @@ fetch("/api/state")
     if (snapshot.theme) applyTheme(snapshot.theme);
     if (snapshot.rotation != null) applyRotation(snapshot.rotation);
     onAudio(snapshot.audio);
+    if (snapshot.obd) {
+      onObd(snapshot.obd);
+      onDtc({ codes: snapshot.obd.dtcs || [],
+              message: snapshot.obd.connected ? undefined : "OFFLINE" });
+    }
+    onCamera(snapshot.camera);
   })
   .catch(() => {});
 
