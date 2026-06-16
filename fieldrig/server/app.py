@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+REPO_DIR = Path(__file__).resolve().parents[2]
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,6 +33,33 @@ from ..modules.audio import AudioModule
 log = get_module_logger("server")
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+async def _online(host: str = "github.com", port: int = 443,
+                  timeout: float = 4.0) -> bool:
+    """Quick TCP probe so we can say 'no internet' instead of hanging on git."""
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port), timeout)
+        writer.close()
+        return True
+    except Exception:
+        return False
+
+
+async def _run(*args: str, cwd: str | None = None,
+               timeout: float = 120) -> tuple[int, str]:
+    proc = await asyncio.create_subprocess_exec(
+        *args, cwd=cwd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return 1, "timed out"
+    return proc.returncode or 0, (out or b"").decode(errors="replace").strip()
 
 
 class Hub:
@@ -85,6 +114,38 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="FieldRig", version=__version__, lifespan=lifespan)
 
+    async def do_update(_m: dict) -> None:
+        """Pull the latest code and restart the service, if online.
+
+        Restarts via systemd with --no-block so the request survives this
+        process being killed; the page reloads itself once it reconnects to
+        the freshly started server (see app.js).
+        """
+        def emit(stage: str, message: str) -> None:
+            bus.emit("update_status", {"stage": stage, "message": message})
+
+        emit("checking", "CHECKING CONNECTION…")
+        if not await _online():
+            emit("error", "NO INTERNET — UPDATE SKIPPED")
+            return
+
+        emit("pulling", "PULLING LATEST…")
+        code, out = await _run("git", "pull", "--ff-only", cwd=str(REPO_DIR))
+        if code != 0:
+            tail = out.splitlines()[-1] if out else "error"
+            emit("error", f"GIT PULL FAILED: {tail}")
+            return
+        if "up to date" in out.lower():
+            emit("uptodate", "ALREADY UP TO DATE")
+            return
+
+        log.info("update pulled new code, restarting service")
+        emit("applying", "UPDATED — RESTARTING…")
+        code, out = await _run("systemctl", "--user", "restart", "--no-block",
+                               "fieldrig-server.service", timeout=15)
+        if code != 0:
+            emit("manual", "UPDATED — RESTART REQUIRED")
+
     # Commands the page may send over /ws. Each returns a coroutine.
     commands = {
         "play_pause": lambda m: audio.play_pause(),
@@ -98,6 +159,7 @@ def create_app() -> FastAPI:
         "bt_connect": lambda m: audio.bt_connect(m["mac"]),
         "bt_disconnect": lambda m: audio.bt_disconnect(m["mac"]),
         "bt_remove": lambda m: audio.bt_remove(m["mac"]),
+        "app_update": do_update,
     }
 
     @app.get("/api/state")

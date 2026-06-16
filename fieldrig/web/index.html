@@ -180,13 +180,20 @@
       <!-- Phase 8: <img class="feed" src="/camera.mjpg"> replaces this card -->
     </div>
   </section>
-  <section id="screen-system" class="screen placeholder">
-    <div class="panel card">
-      <span class="ptitle">MODULE STATUS</span><span class="psub">PHASE 9</span>
-      <div class="glyph">⚙</div>
-      <div class="big">SYSTEM — BASIC</div>
-      <div class="dim">FULL MODULE HEALTH · SETTINGS · REBOOT</div>
-      <div class="dimmer">FULL SCREEN ARRIVES IN PHASE 9</div>
+  <section id="screen-system" class="screen">
+    <div class="panel">
+      <span class="ptitle">⚙ SOFTWARE</span>
+      <span class="psub" id="sys-version">v---</span>
+      <div class="dim">PULL THE LATEST CODE FROM GIT AND RESTART. NEEDS INTERNET.</div>
+      <div id="update-status" class="big">READY</div>
+    </div>
+    <div class="panel grow">
+      <span class="ptitle">⚙ MODULE STATUS</span>
+      <span class="psub">PHASE 9</span>
+      <pre id="sysstats2" class="dim">full module health, settings and reboot arrive in Phase 9</pre>
+    </div>
+    <div class="controls">
+      <button data-cmd="app_update" class="accent">⟳ UPDATE</button>
     </div>
   </section>
 </main>

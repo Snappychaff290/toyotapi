@@ -14,6 +14,7 @@ const PROGRESS_WIDTH = 28;
 let ws = null;
 let selectedMac = null;
 let btDevices = [];
+let pendingReload = false;
 
 /* ---------- helpers ---------- */
 
@@ -170,6 +171,14 @@ function onSystem(info) {
   $("#sysstats").textContent = lines.join("\n");
 }
 
+function onUpdate(info) {
+  const el = $("#update-status");
+  if (el) el.textContent = info.message || info.stage || "";
+  // The server is about to restart; reload once we reconnect to the new one
+  // so refreshed HTML/CSS/JS are actually fetched (a stale chromium wouldn't).
+  if (info.stage === "applying") pendingReload = true;
+}
+
 function feed(event, data) {
   const stamp = new Date().toTimeString().slice(0, 8);
   let detail = "";
@@ -194,9 +203,13 @@ function connect() {
     else if (event === "waveform_update") onWaveform(data);
     else if (event === "bluetooth_update") onBluetooth(data);
     else if (event === "system_update") onSystem(data);
+    else if (event === "update_status") onUpdate(data);
     if (!NOISY.has(event)) feed(event, data);
   };
   ws.onopen = () => {
+    // Reconnected to a server that just restarted from an update -> reload
+    // the page so the new front-end assets load.
+    if (pendingReload) { location.reload(); return; }
     feed("ui_connected", null);
     send("bt_refresh");
   };
@@ -209,6 +222,8 @@ fetch("/api/state")
   .then((r) => r.json())
   .then((snapshot) => {
     $("#frame-sub").textContent = `v${snapshot.version} ▞▞`;
+    const sv = $("#sys-version");
+    if (sv) sv.textContent = `v${snapshot.version}`;
     onAudio(snapshot.audio);
   })
   .catch(() => {});
